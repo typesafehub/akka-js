@@ -2,39 +2,57 @@ package test
 
 import scala.scalajs.js
 import js.Dynamic.global
+
 import org.scalajs.dom
 
+import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
 import akka.actor._
+import akka.pattern.Ask._
+import akka.util.Timeout
+
 
 case class Greeting(who: String)
+case class Request(x: Int)
 
-class GreetingActor extends Actor {
-  def receive = {
-    case Greeting(who) =>
-      global.console.log("Hello " + who)
-      val paragraph = dom.document.createElement("p")
-      val result = "hello there, kiddo2"
-      paragraph.innerHTML = s"<strong>$result</strong>"
-      dom.document.getElementById("playground").appendChild(paragraph)
-
+trait Util {
+  def appendText(text: String): Unit = {
+    val paragraph = dom.document.createElement("p")
+    paragraph.innerHTML = s"<strong>$text</strong>"
+    dom.document.getElementById("playground").appendChild(paragraph)
   }
 }
 
-object ActorTest extends js.JSApp {
+class GreetingActor extends Actor with Util {
+  def receive = {
+    case Greeting(who) =>
+      global.console.log("Hello " + who)
+      appendText("hello there again, kiddo")
+
+    case Request(y) =>
+      sender ! s"$self's response: $y"
+  }
+}
+
+object ActorTest extends js.JSApp with Util {
+
   def main(): Unit = {
-    val paragraph = dom.document.createElement("p")
-    val result = "hello there, kiddo"
-    paragraph.innerHTML = s"<strong>$result</strong>"
-    dom.document.getElementById("playground").appendChild(paragraph)
+    appendText("hello there, kiddo")
     global.console.log("Starting test")
+
     val system = ActorSystem("MySystem")
     global.console.log("Actor system created")
+
     val greeter = system.actorOf(Props(new GreetingActor), name = "greeter")
     global.console.log("Actor created")
     greeter ! Greeting("Charlie Parker")
+
+    implicit val timeout: Timeout = 2.seconds
+    (greeter ? Request(5)) map { res =>
+      appendText(s"received response: $res")
+    }
   }
 
-  def m(): Unit = {
-    error("boom!") // `Predef.error` is deprecated
-  }
 }
