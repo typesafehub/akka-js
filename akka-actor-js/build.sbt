@@ -14,9 +14,7 @@ unmanagedSourceDirectories in Compile += baseDirectory.value / ".." / "akka-acto
 
 excludeFilter in unmanagedSources := HiddenFileFilter //|| Exclude.excludeFromModuleOne
 
-ScalaJSKeys.persistLauncher := true
-
-ScalaJSKeys.persistLauncher in Test := false
+ScalaJSKeys.persistLauncher := false
 
 // only for testing:
 
