@@ -1,6 +1,6 @@
 package akkajs.test
 
-import scala.reflect.ClassTag
+import scala.reflect.{ClassTag, classTag}
 import scala.util.{Try, Success, Failure}
 
 
@@ -56,6 +56,22 @@ trait AsyncAssert {
           Failure(t)
     }
     assert(outcome.isSuccess, s"unexpected ${outcome.failed.get.toString}")
+  }
+
+  def checkIntercept[E <: Throwable: ClassTag, T](outcome: Try[T]): Unit = outcome match {
+    case Success(_) =>
+      assert(false, s"${classTag[E].runtimeClass.toString} not thrown}")
+    case Failure(t) =>
+      val toReport: Try[Boolean] = {
+        val clazz = classTag[E].runtimeClass
+        val catchClass = t.getClass
+        // t.getClass <: classOf[E]?
+        if (clazz.isAssignableFrom(catchClass))
+          Success(true)
+        else
+          Failure(t)
+      }
+      assert(toReport.isSuccess, s"unexpected ${toReport.failed.get.toString}")
   }
 
 }
