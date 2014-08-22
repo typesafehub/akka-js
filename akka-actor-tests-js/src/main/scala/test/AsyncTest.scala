@@ -1,6 +1,7 @@
 package akkajs.test
 
-import scala.util.Try
+import scala.reflect.{ClassTag, classTag}
+import scala.util.{Try, Success, Failure}
 
 
 object TestSuite {
@@ -40,6 +41,44 @@ trait AsyncAssert {
     TestSuite.checkLater(TestTask(() => cond, () => msg))
   }
 
+  def intercept[T <: Throwable: ClassTag](body: => Unit): Unit = {
+    val outcome: Try[Boolean] = try {
+      body
+      Failure(new IllegalStateException("no exception thrown"))
+    } catch {
+      case t: Throwable =>
+        val clazz = implicitly[ClassTag[T]].runtimeClass
+        val catchClass = t.getClass
+        // t.getClass <: classOf[T]?
+        if (clazz.isAssignableFrom(catchClass))
+          Success(true)
+        else
+          Failure(t)
+    }
+    assert(outcome.isSuccess, s"unexpected ${outcome.failed.get.toString}")
+  }
+
+  def checkIntercept[E <: Throwable: ClassTag, T](outcome: Try[T]): Unit = outcome match {
+    case Success(_) =>
+      assert(false, s"${classTag[E].runtimeClass.toString} not thrown}")
+    case Failure(t) =>
+      val toReport: Try[Boolean] = {
+        val clazz = classTag[E].runtimeClass
+        val catchClass = t.getClass
+        // t.getClass <: classOf[E]?
+        if (clazz.isAssignableFrom(catchClass))
+          Success(true)
+        else
+          Failure(t)
+      }
+      assert(toReport.isSuccess, s"unexpected ${toReport.failed.get.toString}")
+  }
+
+}
+
+trait TestSuite {
+  def testMain(): Unit
+  def numTests: Int
 }
 
 object DefaultConsolePrinter extends (List[CompletedTest] => Unit) {

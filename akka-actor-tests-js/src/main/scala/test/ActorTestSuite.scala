@@ -36,19 +36,16 @@ class SimpleActor extends Actor with AsyncAssert {
 }
 
 
-object ActorTestSuite extends js.JSApp {
-  def main(): Unit = {
+class ActorTestSuite(system: ActorSystem) extends TestSuite {
 
-    // set up test suite
-    TestSuite.after(2)(DefaultConsolePrinter)
+  def numTests: Int = 2
 
-    global.console.log("Creating actor system...")
-    val system = ActorSystem("test-system")
-
+  def testMain(): Unit = {
     val simple = system.actorOf(Props(new SimpleActor), "simple")
     simple ! OneWay("hello")
 
     val consumer = system.actorOf(Props(new SimpleActor), "consumer")
     simple ! ForwardTo(consumer)
   }
+
 }
