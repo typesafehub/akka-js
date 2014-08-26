@@ -2,6 +2,77 @@ package akka.actor
 
 import scala.annotation.unchecked.uncheckedStable
 
+/**
+ * InvalidMessageException is thrown when an invalid message is sent to an
+ * Actor.
+ * Currently only `null` is an invalid message.
+ */
+final case class InvalidMessageException private[akka] (
+    message: String) extends ActorsException(message)
+
+/**
+ * A DeathPactException is thrown by an Actor that receives a
+ * Terminated(someActor) message that it doesn't handle itself, effectively
+ * crashing the Actor and escalating to the supervisor.
+ */
+final case class DeathPactException private[akka] (dead: ActorRef)
+    extends ActorsException("Monitored actor [" + dead + "] terminated")
+
+/**
+ * This message is published to the EventStream whenever an Actor receives a
+ * message it doesn't understand.
+ */
+final case class UnhandledMessage(message: Any, sender: ActorRef,
+    recipient: ActorRef)
+
+/**
+ * Classes for passing status back to the sender.
+ * Used for internal ACKing protocol. But exposed as utility class for
+ * user-specific ACKing protocols as well.
+ */
+object Status {
+  sealed trait Status extends Serializable
+
+  /**
+   * This class/message type is preferably used to indicate success of some
+   * operation performed.
+   */
+  case class Success(status: AnyRef) extends Status
+
+  /**
+   * This class/message type is preferably used to indicate failure of some
+   * operation performed.
+   * As an example, it is used to signal failure with AskSupport is used (ask/?).
+   */
+  case class Failure(cause: Throwable) extends Status
+}
+
+/**
+ * Scala API: Mix in ActorLogging into your Actor to easily obtain a reference to a logger,
+ * which is available under the name "log".
+ *
+ * {{{
+ * class MyActor extends Actor with ActorLogging {
+ *   def receive = {
+ *     case "pigdog" => log.info("We've got yet another pigdog on our hands")
+ *   }
+ * }
+ * }}}
+ */
+trait ActorLogging { this: Actor =>
+  //val log = akka.event.Logging(context.system, this)
+  object log {
+    import akka.event.Logging._
+    private def publish(event: LogEvent) = context.system.eventStream.publish(event)
+    private def myClass = ActorLogging.this.getClass
+
+    def debug(msg: String): Unit = publish(Debug(self.toString, myClass, msg))
+    def info(msg: String): Unit = publish(Info(self.toString, myClass, msg))
+    def warning(msg: String): Unit = publish(Warning(self.toString, myClass, msg))
+    def error(msg: String): Unit = publish(Error(self.toString, myClass, msg))
+  }
+}
+
 object Actor {
   /**
    * Type alias representing a Receive-expression for Akka Actors.
@@ -154,31 +225,5 @@ trait Actor {
       case _                =>
         context.system.eventStream.publish(UnhandledMessage(message, sender, self))
     }
-  }
-}
-
-/**
- * Scala API: Mix in ActorLogging into your Actor to easily obtain a reference to a logger,
- * which is available under the name "log".
- *
- * {{{
- * class MyActor extends Actor with ActorLogging {
- *   def receive = {
- *     case "pigdog" => log.info("We've got yet another pigdog on our hands")
- *   }
- * }
- * }}}
- */
-trait ActorLogging { this: Actor =>
-  //val log = akka.event.Logging(context.system, this)
-  object log {
-    import akka.event.Logging._
-    private def publish(event: LogEvent) = context.system.eventStream.publish(event)
-    private def myClass = ActorLogging.this.getClass
-
-    def debug(msg: String): Unit = publish(Debug(self.toString, myClass, msg))
-    def info(msg: String): Unit = publish(Info(self.toString, myClass, msg))
-    def warning(msg: String): Unit = publish(Warning(self.toString, myClass, msg))
-    def error(msg: String): Unit = publish(Error(self.toString, myClass, msg))
   }
 }

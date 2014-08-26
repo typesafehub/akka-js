@@ -107,19 +107,3 @@ object OriginalRestartException {
     rec(ex)
   }
 }
-
-/**
- * InvalidMessageException is thrown when an invalid message is sent to an
- * Actor.
- * Currently only `null` is an invalid message.
- */
-final case class InvalidMessageException private[akka] (
-    message: String) extends ActorsException(message)
-
-/**
- * A DeathPactException is thrown by an Actor that receives a
- * Terminated(someActor) message that it doesn't handle itself, effectively
- * crashing the Actor and escalating to the supervisor.
- */
-final case class DeathPactException private[akka] (dead: ActorRef)
-    extends ActorsException("Monitored actor [" + dead + "] terminated")
