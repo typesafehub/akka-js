@@ -1,4 +1,10 @@
-package akka.actor
+/**
+ * Copyright (C) 2009-2014 Typesafe Inc. <http://www.typesafe.com>
+ */
+
+package akka.dispatch
+
+import akka.actor._
 
 final case class Envelope private (val message: Any, val sender: ActorRef)
 

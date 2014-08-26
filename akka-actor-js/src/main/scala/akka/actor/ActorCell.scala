@@ -5,7 +5,7 @@ import scala.annotation.{tailrec, switch}
 import scala.collection.immutable
 import scala.util.control.NonFatal
 
-import akka.dispatch.MessageDispatcher
+import akka.dispatch.{MessageDispatcher, Envelope}
 import akka.event.Logging._
 import akka.dispatch.sysmsg._
 
