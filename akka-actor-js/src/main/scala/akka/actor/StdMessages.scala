@@ -72,35 +72,6 @@ final case class Terminated private[akka] (actor: ActorRef)(
 case object ReceiveTimeout extends PossiblyHarmful
 
 /**
- * This message is published to the EventStream whenever an Actor receives a
- * message it doesn't understand.
- */
-final case class UnhandledMessage(message: Any, sender: ActorRef,
-    recipient: ActorRef)
-
-/**
- * Classes for passing status back to the sender.
- * Used for internal ACKing protocol. But exposed as utility class for
- * user-specific ACKing protocols as well.
- */
-object Status {
-  sealed trait Status extends Serializable
-
-  /**
-   * This class/message type is preferably used to indicate success of some
-   * operation performed.
-   */
-  case class Success(status: AnyRef) extends Status
-
-  /**
-   * This class/message type is preferably used to indicate failure of some
-   * operation performed.
-   * As an example, it is used to signal failure with AskSupport is used (ask/?).
-   */
-  case class Failure(cause: Throwable) extends Status
-}
-
-/**
  * When a message is sent to an Actor that is terminated before receiving the
  * message, it will be sent as a DeadLetter to the ActorSystem's EventStream
  */

@@ -12,6 +12,7 @@ import scala.util.control.NonFatal
 
 import akka.event.Logging
 import akka.event.Logging.{Error, Debug}
+import akka.dispatch.Envelope
 import akka.dispatch.sysmsg._
 
 private[akka] trait FaultHandling { this: ActorCell =>

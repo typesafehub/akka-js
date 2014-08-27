@@ -6,6 +6,7 @@ package akka.actor
 
 import scala.scalajs.js
 
+import akka.AkkaException
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
@@ -15,7 +16,7 @@ import akka.util._
  * This exception is thrown by Scheduler.schedule* when scheduling is not
  * possible, e.g. after shutting down the Scheduler.
  */
-private case class SchedulerException(msg: String) extends ActorsException(msg)
+private case class SchedulerException(msg: String) extends AkkaException(msg)
 
 /**
  * An Akka scheduler service. This one needs one special behavior: if

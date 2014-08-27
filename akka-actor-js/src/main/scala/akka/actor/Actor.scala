@@ -1,6 +1,179 @@
 package akka.actor
 
+import akka.AkkaException
 import scala.annotation.unchecked.uncheckedStable
+import scala.annotation.tailrec
+
+/**
+ * IllegalActorStateException is thrown when a core invariant in the Actor
+ * implementation has been violated.
+ * For instance, if you try to create an Actor that doesn't extend Actor.
+ */
+final case class IllegalActorStateException private[akka] (
+    message: String) extends AkkaException(message)
+
+/**
+ * ActorKilledException is thrown when an Actor receives the
+ * [[org.scalajs.actors.Kill]] message
+ */
+final case class ActorKilledException private[akka] (
+    message: String) extends AkkaException(message)
+
+/**
+ * An InvalidActorNameException is thrown when you try to convert something,
+ * usually a String, to an Actor name which doesn't validate.
+ */
+final case class InvalidActorNameException(
+    message: String) extends AkkaException(message)
+
+/**
+ * An ActorInitializationException is thrown when the the initialization logic
+ * for an Actor fails.
+ *
+ * There is an extractor which works for ActorInitializationException and its
+ * subtypes:
+ *
+ * {{{
+ * ex match {
+ *   case ActorInitializationException(actor, message, cause) => ...
+ * }
+ * }}}
+ */
+class ActorInitializationException protected (actor: ActorRef,
+    message: String, cause: Throwable)
+    extends AkkaException(message, cause) {
+  def getActor(): ActorRef = actor
+}
+
+object ActorInitializationException {
+  private[akka] def apply(actor: ActorRef, message: String, cause: Throwable = null): ActorInitializationException =
+    new ActorInitializationException(actor, message, cause)
+  private[akka] def apply(message: String): ActorInitializationException =
+    new ActorInitializationException(null, message, null)
+  def unapply(ex: ActorInitializationException): Option[(ActorRef, String, Throwable)] =
+    Some((ex.getActor, ex.getMessage, ex.getCause))
+}
+
+/**
+ * A PreRestartException is thrown when the preRestart() method failed; this
+ * exception is not propagated to the supervisor, as it originates from the
+ * already failed instance, hence it is only visible as log entry on the event
+ * stream.
+ *
+ * @param actor is the actor whose preRestart() hook failed
+ * @param cause is the exception thrown by that actor within preRestart()
+ * @param originalCause is the exception which caused the restart in the first place
+ * @param messageOption is the message which was optionally passed into preRestart()
+ */
+final case class PreRestartException private[akka] (actor: ActorRef,
+    cause: Throwable, originalCause: Throwable, messageOption: Option[Any])
+    extends ActorInitializationException(actor,
+        "exception in preRestart(" +
+        (if (originalCause == null) "null" else originalCause.getClass) + ", " +
+        (messageOption match { case Some(m: AnyRef) => m.getClass; case _ => "None" }) +
+        ")", cause)
+
+/**
+ * A PostRestartException is thrown when constructor or postRestart() method
+ * fails during a restart attempt.
+ *
+ * @param actor is the actor whose constructor or postRestart() hook failed
+ * @param cause is the exception thrown by that actor within preRestart()
+ * @param originalCause is the exception which caused the restart in the first place
+ */
+final case class PostRestartException private[akka] (actor: ActorRef,
+    cause: Throwable, originalCause: Throwable)
+    extends ActorInitializationException(actor,
+        "exception post restart (" + (
+            if (originalCause == null) "null"
+            else originalCause.getClass) + ")", cause)
+
+/**
+ * This is an extractor for retrieving the original cause (i.e. the first
+ * failure) from a [[org.scalajs.actors.PostRestartException]]. In the face of
+ * multiple “nested” restarts it will walk the origCause-links until it arrives
+ * at a non-PostRestartException type.
+ */
+object OriginalRestartException {
+  def unapply(ex: PostRestartException): Option[Throwable] = {
+    @tailrec def rec(ex: PostRestartException): Option[Throwable] = ex match {
+      case PostRestartException(_, _, e: PostRestartException) => rec(e)
+      case PostRestartException(_, _, e)                       => Some(e)
+    }
+    rec(ex)
+  }
+}
+
+/**
+ * InvalidMessageException is thrown when an invalid message is sent to an
+ * Actor.
+ * Currently only `null` is an invalid message.
+ */
+final case class InvalidMessageException private[akka] (
+    message: String) extends AkkaException(message)
+
+/**
+ * A DeathPactException is thrown by an Actor that receives a
+ * Terminated(someActor) message that it doesn't handle itself, effectively
+ * crashing the Actor and escalating to the supervisor.
+ */
+final case class DeathPactException private[akka] (dead: ActorRef)
+    extends AkkaException("Monitored actor [" + dead + "] terminated")
+
+/**
+ * This message is published to the EventStream whenever an Actor receives a
+ * message it doesn't understand.
+ */
+final case class UnhandledMessage(message: Any, sender: ActorRef,
+    recipient: ActorRef)
+
+/**
+ * Classes for passing status back to the sender.
+ * Used for internal ACKing protocol. But exposed as utility class for
+ * user-specific ACKing protocols as well.
+ */
+object Status {
+  sealed trait Status extends Serializable
+
+  /**
+   * This class/message type is preferably used to indicate success of some
+   * operation performed.
+   */
+  case class Success(status: AnyRef) extends Status
+
+  /**
+   * This class/message type is preferably used to indicate failure of some
+   * operation performed.
+   * As an example, it is used to signal failure with AskSupport is used (ask/?).
+   */
+  case class Failure(cause: Throwable) extends Status
+}
+
+/**
+ * Scala API: Mix in ActorLogging into your Actor to easily obtain a reference to a logger,
+ * which is available under the name "log".
+ *
+ * {{{
+ * class MyActor extends Actor with ActorLogging {
+ *   def receive = {
+ *     case "pigdog" => log.info("We've got yet another pigdog on our hands")
+ *   }
+ * }
+ * }}}
+ */
+trait ActorLogging { this: Actor =>
+  //val log = akka.event.Logging(context.system, this)
+  object log {
+    import akka.event.Logging._
+    private def publish(event: LogEvent) = context.system.eventStream.publish(event)
+    private def myClass = ActorLogging.this.getClass
+
+    def debug(msg: String): Unit = publish(Debug(self.toString, myClass, msg))
+    def info(msg: String): Unit = publish(Info(self.toString, myClass, msg))
+    def warning(msg: String): Unit = publish(Warning(self.toString, myClass, msg))
+    def error(msg: String): Unit = publish(Error(self.toString, myClass, msg))
+  }
+}
 
 object Actor {
   /**
@@ -154,31 +327,5 @@ trait Actor {
       case _                =>
         context.system.eventStream.publish(UnhandledMessage(message, sender, self))
     }
-  }
-}
-
-/**
- * Scala API: Mix in ActorLogging into your Actor to easily obtain a reference to a logger,
- * which is available under the name "log".
- *
- * {{{
- * class MyActor extends Actor with ActorLogging {
- *   def receive = {
- *     case "pigdog" => log.info("We've got yet another pigdog on our hands")
- *   }
- * }
- * }}}
- */
-trait ActorLogging { this: Actor =>
-  //val log = akka.event.Logging(context.system, this)
-  object log {
-    import akka.event.Logging._
-    private def publish(event: LogEvent) = context.system.eventStream.publish(event)
-    private def myClass = ActorLogging.this.getClass
-
-    def debug(msg: String): Unit = publish(Debug(self.toString, myClass, msg))
-    def info(msg: String): Unit = publish(Info(self.toString, myClass, msg))
-    def warning(msg: String): Unit = publish(Warning(self.toString, myClass, msg))
-    def error(msg: String): Unit = publish(Error(self.toString, myClass, msg))
   }
 }
