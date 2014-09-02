@@ -17,7 +17,11 @@ object TestSuite {
     tasks = task :: tasks
     if (tasks.length == numTests) {
       val results = tasks.map { task =>
-        val result = Try { task.cond() }
+        val result = Try {
+          val success = task.cond()
+          if (!success) throw new AssertionError(task.msg())
+          success
+        }
         CompletedTest(task, result)
       }
 
@@ -81,16 +85,16 @@ trait TestSuite {
   def numTests: Int
 }
 
-object DefaultConsolePrinter extends (List[CompletedTest] => Unit) {
+object DefaultConsolePrinter extends (List[CompletedTest] => Int) {
 
-  def apply(tests: List[CompletedTest]): Unit = {
+  def apply(tests: List[CompletedTest]): Int = {
+    var exitCode = 0
     tests.zipWithIndex.foreach { case (test, index) =>
-      val info = if (test.result.isFailure)
-        s": ${test.task.msg()}"
-      else
-        ""
-      println(s"Test $index: ${test.result}$info")
+      if (test.result.isFailure)
+        exitCode = 1
+      println(s"Test $index: ${test.result}")
     }
+    exitCode
   }
 
 }

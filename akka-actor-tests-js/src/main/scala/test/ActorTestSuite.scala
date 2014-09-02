@@ -22,7 +22,7 @@ class SimpleActor extends Actor with AsyncAssert {
 
   def receive = {
     case OneWay(msg) =>
-      assert(msg == "hello", s"""expected: "hello", received: "$msg" """)
+      assert(msg == "hello", s"expected: 'hello', received: '$msg'")
 
     case TwoWay(msg) =>
       sender ! Response(s"$msg$msg")
@@ -30,7 +30,7 @@ class SimpleActor extends Actor with AsyncAssert {
     case ForwardTo(other) =>
       val response = other ? TwoWay("hello")
       response.map {
-        case Response(msg) => assert(msg == "hellohello", s"""expected: "hellohello", received: "$msg" """)
+        case Response(msg) => assert(msg == "hellohello", s"expected: 'hellohello', received: '$msg'")
       }
   }
 }
