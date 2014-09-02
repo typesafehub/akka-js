@@ -1,0 +1,9 @@
+language: scala
+script: sbt ++$TRAVIS_SCALA_VERSION 'project akka-actor-tests-js' run
+scala:
+- 2.11.2
+jdk:
+- openjdk7
+notifications:
+email:
+- philipp.haller@typesafe.com
