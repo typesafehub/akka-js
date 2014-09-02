@@ -16,6 +16,10 @@ ScalaJSKeys.persistLauncher := true
 
 ScalaJSKeys.persistLauncher in Test := false
 
+ScalaJSKeys.preLinkJSEnv := new scala.scalajs.sbtplugin.env.phantomjs.PhantomJSEnv(autoExit = false)
+
+ScalaJSKeys.postLinkJSEnv := new scala.scalajs.sbtplugin.env.phantomjs.PhantomJSEnv(autoExit = false)
+
 libraryDependencies += "org.scala-lang.modules.scalajs" %%% "scalajs-dom" % "0.6" // MIT
 
 libraryDependencies += "org.scalajs" %%% "scalajs-pickling" % "0.3.1"

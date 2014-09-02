@@ -20,7 +20,7 @@ object AkkaJSTestSuite extends js.JSApp {
     val actorRefTestSuite = new ActorRefTestSuite(system)
     testsTotal += actorRefTestSuite.numTests
 
-    TestSuite.after(testsTotal)(DefaultConsolePrinter)
+    TestSuite.after(testsTotal)(DefaultConsolePrinter andThen (x => System.exit(0)))
 
     actorTestSuite.testMain()
     actorRefTestSuite.testMain()
