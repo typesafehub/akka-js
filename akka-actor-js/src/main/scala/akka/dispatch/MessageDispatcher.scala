@@ -10,7 +10,7 @@ import akka.dispatch.sysmsg._
 import akka.scalajs.jsapi.Timers
 
 class MessageDispatcher(
-    val mailboxes: Mailboxes) extends ExecutionContext {
+  val mailboxes: Mailboxes) extends ExecutionContext {
 
   /**
    *  Creates and returns a mailbox for the given actor.
@@ -107,7 +107,7 @@ class MessageDispatcher(
    * INTERNAL API
    */
   protected[akka] def registerForExecution(mbox: Mailbox,
-      hasMessageHint: Boolean, hasSystemMessageHint: Boolean): Boolean = {
+                                           hasMessageHint: Boolean, hasSystemMessageHint: Boolean): Boolean = {
     if (mbox.canBeScheduledForExecution(hasMessageHint, hasSystemMessageHint)) {
       if (mbox.setAsScheduled()) {
         execute(mbox)

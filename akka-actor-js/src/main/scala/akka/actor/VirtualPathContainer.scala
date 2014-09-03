@@ -8,20 +8,20 @@ import akka.util.JSMap
  * INTERNAL API
  */
 private[akka] class VirtualPathContainer(
-    override val provider: ActorRefProvider,
-    override val path: ActorPath,
-    override val getParent: InternalActorRef/*,
-    val log: LoggingAdapter*/) extends MinimalActorRef {
+  override val provider: ActorRefProvider,
+  override val path: ActorPath,
+  override val getParent: InternalActorRef /*,
+    val log: LoggingAdapter*/ ) extends MinimalActorRef {
 
   private val children = JSMap.empty[InternalActorRef]
 
   def addChild(name: String, ref: InternalActorRef): Unit = {
     children.put(name, ref) match {
       case null ⇒ // okay
-      case old ⇒
-        // this can happen from RemoteSystemDaemon if a new child is created
-        // before the old is removed from RemoteSystemDaemon children
-        //log.debug("{} replacing child {} ({} -> {})", path, name, old, ref)
+      case old  ⇒
+      // this can happen from RemoteSystemDaemon if a new child is created
+      // before the old is removed from RemoteSystemDaemon children
+      //log.debug("{} replacing child {} ({} -> {})", path, name, old, ref)
     }
   }
 
@@ -35,7 +35,7 @@ private[akka] class VirtualPathContainer(
   protected def removeChild(name: String, ref: ActorRef): Unit = {
     val current = getChild(name)
     if (current eq null)
-      ()//log.warning("{} trying to remove non-child {}", path, name)
+      () //log.warning("{} trying to remove non-child {}", path, name)
     else if (current == ref)
       children.remove(name)
   }
@@ -48,8 +48,8 @@ private[akka] class VirtualPathContainer(
       val n = name.next()
       if (n.isEmpty) this
       else children.get(n) match {
-        case None => Nobody
-        case Some(some) =>
+        case None ⇒ Nobody
+        case Some(some) ⇒
           if (name.isEmpty) some
           else some.getChild(name)
       }
@@ -58,7 +58,7 @@ private[akka] class VirtualPathContainer(
 
   def hasChildren: Boolean = !children.isEmpty
 
-  def foreachChild(f: ActorRef => Unit): Unit = {
+  def foreachChild(f: ActorRef ⇒ Unit): Unit = {
     val iter = children.values.iterator
     while (iter.hasNext) f(iter.next)
   }

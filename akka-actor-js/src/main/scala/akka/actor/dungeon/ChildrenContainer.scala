@@ -99,7 +99,7 @@ private[akka] object ChildrenContainer {
    * message).
    */
   class NormalChildrenContainer(
-      c: JSMap[ChildRestartStats]) extends ChildrenContainer {
+    c: JSMap[ChildRestartStats]) extends ChildrenContainer {
 
     override def add(name: String, stats: ChildRestartStats): ChildrenContainer = {
       c(name) = stats
@@ -143,8 +143,8 @@ private[akka] object ChildrenContainer {
    * left and whether or not the reason was “Terminating”.
    */
   case class TerminatingChildrenContainer(
-      c: JSMap[ChildRestartStats], toDie: Set[ActorRef], reason: SuspendReason)
-      extends ChildrenContainer {
+    c: JSMap[ChildRestartStats], toDie: Set[ActorRef], reason: SuspendReason)
+    extends ChildrenContainer {
     // TODO Test whether we can also turn toDie into a mutable set
 
     override def add(name: String, stats: ChildRestartStats): ChildrenContainer = {
@@ -156,8 +156,8 @@ private[akka] object ChildrenContainer {
       val t = toDie - child
       if (t.isEmpty) {
         reason match {
-          case Termination => TerminatedChildrenContainer
-          case _           =>
+          case Termination ⇒ TerminatedChildrenContainer
+          case _ ⇒
             c -= child.path.name
             if (c.isEmpty) EmptyChildrenContainer
             else new NormalChildrenContainer(c)

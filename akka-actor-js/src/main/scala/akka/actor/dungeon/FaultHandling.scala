@@ -11,11 +11,11 @@ import scala.util.control.Exception._
 import scala.util.control.NonFatal
 
 import akka.event.Logging
-import akka.event.Logging.{Error, Debug}
+import akka.event.Logging.{ Error, Debug }
 import akka.dispatch.Envelope
 import akka.dispatch.sysmsg._
 
-private[akka] trait FaultHandling { this: ActorCell =>
+private[akka] trait FaultHandling { this: ActorCell ⇒
 
   /* =================
    * T H E   R U L E S
@@ -63,7 +63,7 @@ private[akka] trait FaultHandling { this: ActorCell =>
         try {
           // if the actor fails in preRestart, we can do nothing but log it: it’s best-effort
           if (failedActor.context ne null) failedActor.preRestart(cause, optionalMessage)
-        } catch handleNonFatalOrInterruptedException { e =>
+        } catch handleNonFatalOrInterruptedException { e ⇒
           val ex = new PreRestartException(self, e, cause, optionalMessage)
           publish(Error(ex, self.path.toString, clazz(failedActor), e.getMessage))
         } finally {
@@ -117,7 +117,7 @@ private[akka] trait FaultHandling { this: ActorCell =>
    * Do create the actor in response to a failure.
    */
   protected def faultCreate(): Unit = {
-    assert(mailbox.isSuspended, "mailbox must be suspended during failed creation")//, status=" + mailbox.status)
+    assert(mailbox.isSuspended, "mailbox must be suspended during failed creation") //, status=" + mailbox.status)
     assert(perpetrator == self)
 
     setReceiveTimeout(Duration.Undefined)
@@ -134,7 +134,7 @@ private[akka] trait FaultHandling { this: ActorCell =>
     try resumeNonRecursive()
     finally clearFailed()
     try create(None)
-    catch handleNonFatalOrInterruptedException { e =>
+    catch handleNonFatalOrInterruptedException { e ⇒
       handleInvokeFailure(Nil, e)
     }
   }
@@ -167,22 +167,23 @@ private[akka] trait FaultHandling { this: ActorCell =>
   }
 
   final def handleInvokeFailure(
-      childrenNotToSuspend: immutable.Iterable[ActorRef],
-      t: Throwable): Unit = {
+    childrenNotToSuspend: immutable.Iterable[ActorRef],
+    t: Throwable): Unit = {
     // prevent any further messages to be processed until the actor has been restarted
     if (!isFailed) try {
       suspendNonRecursive()
       // suspend children
       val skip: Set[ActorRef] = currentMessage match {
-        case Envelope(Failed(_, _, _), child) => setFailed(child); Set(child)
-        case _                                => setFailed(self); Set.empty
+        case Envelope(Failed(_, _, _), child) ⇒
+          setFailed(child); Set(child)
+        case _ ⇒ setFailed(self); Set.empty
       }
       suspendChildren(exceptFor = skip ++ childrenNotToSuspend)
       // tell supervisor
       parent.sendSystemMessage(Failed(self, t, uid))
-    } catch handleNonFatalOrInterruptedException { e =>
+    } catch handleNonFatalOrInterruptedException { e ⇒
       publish(Error(e, self.path.toString, clazz(actor),
-        "emergency stop: exception in failure handling for " + t.getClass /*+ Logging.stackTraceFor(t)*/))
+        "emergency stop: exception in failure handling for " + t.getClass /*+ Logging.stackTraceFor(t)*/ ))
       try children foreach stop
       finally finishTerminate()
     }
@@ -196,7 +197,7 @@ private[akka] trait FaultHandling { this: ActorCell =>
      * specific order.
      */
     try if (a ne null) a.postStop()
-    catch handleNonFatalOrInterruptedException { e => publish(Error(e, self.path.toString, clazz(a), e.getMessage)) }
+    catch handleNonFatalOrInterruptedException { e ⇒ publish(Error(e, self.path.toString, clazz(a), e.getMessage)) }
     finally try dispatcher.detach(this)
     finally try parent.sendSystemMessage(DeathWatchNotification(self, existenceConfirmed = true, addressTerminated = false))
     finally try tellWatchersWeDied(a)
@@ -229,12 +230,12 @@ private[akka] trait FaultHandling { this: ActorCell =>
         publish(Debug(self.path.toString, clazz(freshActor), "restarted"))
 
       // only after parent is up and running again do restart the children which were not stopped
-      survivors foreach (child =>
+      survivors foreach (child ⇒
         try child.asInstanceOf[InternalActorRef].restart(cause)
-        catch handleNonFatalOrInterruptedException { e =>
+        catch handleNonFatalOrInterruptedException { e ⇒
           publish(Error(e, self.path.toString, clazz(freshActor), "restarting " + child))
         })
-    } catch handleNonFatalOrInterruptedException { e =>
+    } catch handleNonFatalOrInterruptedException { e ⇒
       clearActorFields(actor) // in order to prevent preRestart() from happening again
       handleInvokeFailure(survivors, new PostRestartException(self, e, cause))
     }
@@ -248,17 +249,17 @@ private[akka] trait FaultHandling { this: ActorCell =>
        * the UID protects against reception of a Failed from a child which was
        * killed in preRestart and re-created in postRestart
        */
-      case Some(stats) if stats.uid == f.uid =>
+      case Some(stats) if stats.uid == f.uid ⇒
         if (!actor.supervisorStrategy.handleFailure(this, f.child, f.cause,
-            stats, getAllChildStats))
+          stats, getAllChildStats))
           throw f.cause
-      case Some(stats) =>
+      case Some(stats) ⇒
         publish(Debug(self.path.toString, clazz(actor),
-            "dropping Failed(" + f.cause + ") from old child " + f.child +
+          "dropping Failed(" + f.cause + ") from old child " + f.child +
             " (uid=" + stats.uid + " != " + f.uid + ")"))
-      case None =>
+      case None ⇒
         publish(Debug(self.path.toString, clazz(actor),
-            "dropping Failed(" + f.cause + ") from unknown child " + f.child))
+          "dropping Failed(" + f.cause + ") from unknown child " + f.child))
     }
   }
 
@@ -271,7 +272,7 @@ private[akka] trait FaultHandling { this: ActorCell =>
      */
     if (actor != null) {
       try actor.supervisorStrategy.handleChildTerminated(this, child, children)
-      catch handleNonFatalOrInterruptedException { e =>
+      catch handleNonFatalOrInterruptedException { e ⇒
         publish(Error(e, self.path.toString, clazz(actor), "handleChildTerminated failed"))
         handleInvokeFailure(Nil, e)
       }
@@ -281,16 +282,16 @@ private[akka] trait FaultHandling { this: ActorCell =>
      * then we are continuing the previously suspended recreate/create/terminate action
      */
     status match {
-      case Some(c@ChildrenContainer.Recreation(cause)) => finishRecreate(cause, actor)
-      case Some(c@ChildrenContainer.Creation()) => finishCreate()
-      case Some(ChildrenContainer.Termination) => finishTerminate()
-      case _ =>
+      case Some(c @ ChildrenContainer.Recreation(cause)) ⇒ finishRecreate(cause, actor)
+      case Some(c @ ChildrenContainer.Creation()) ⇒ finishCreate()
+      case Some(ChildrenContainer.Termination) ⇒ finishTerminate()
+      case _ ⇒
     }
   }
 
   final protected def handleNonFatalOrInterruptedException(
-      thunk: (Throwable) => Unit): Catcher[Unit] = {
-    case NonFatal(e) =>
+    thunk: (Throwable) ⇒ Unit): Catcher[Unit] = {
+    case NonFatal(e) ⇒
       thunk(e)
   }
 }

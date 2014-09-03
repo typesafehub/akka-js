@@ -6,14 +6,14 @@ import akka.dispatch._
 import akka.dispatch.sysmsg.SystemMessage
 
 private[akka] class LocalActorRef(
-    system: ActorSystem,
-    val path: ActorPath,
-    _parent: ActorRef,
-    _props: Props,
-    _dispatcher: MessageDispatcher) extends InternalActorRef {
+  system: ActorSystem,
+  val path: ActorPath,
+  _parent: ActorRef,
+  _props: Props,
+  _dispatcher: MessageDispatcher) extends InternalActorRef {
 
   assert(path.uid != ActorCell.undefinedUid || path.isInstanceOf[RootActorPath],
-      s"Trying to create a LocalActorRef with uid-less path $path")
+    s"Trying to create a LocalActorRef with uid-less path $path")
 
   val actorCell: ActorCell =
     new ActorCell(system, _props, _dispatcher, this, _parent)
@@ -45,9 +45,9 @@ private[akka] class LocalActorRef(
   def getSingleChild(name: String): InternalActorRef = {
     val (childName, uid) = ActorCell.splitNameAndUid(name)
     actorCell.childStatsByName(childName) match {
-      case Some(crs: ChildRestartStats) if uid == ActorCell.undefinedUid || uid == crs.uid =>
+      case Some(crs: ChildRestartStats) if uid == ActorCell.undefinedUid || uid == crs.uid ⇒
         crs.child.asInstanceOf[InternalActorRef]
-      case _ => Nobody
+      case _ ⇒ Nobody
     }
   }
 

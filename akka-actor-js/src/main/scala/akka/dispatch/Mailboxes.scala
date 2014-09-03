@@ -4,12 +4,12 @@ import akka.actor._
 import akka.dispatch.sysmsg.SystemMessage
 
 private[akka] class Mailboxes(
-    deadLetters: ActorRef) {
+  deadLetters: ActorRef) {
 
   val deadLetterMailbox: Mailbox = new Mailbox(new MessageQueue {
     def enqueue(receiver: ActorRef, envelope: Envelope): Unit = envelope.message match {
-      case _: DeadLetter => // actor subscribing to DeadLetter, drop it
-      case msg           => deadLetters.!(DeadLetter(msg, envelope.sender, receiver))(envelope.sender)
+      case _: DeadLetter ⇒ // actor subscribing to DeadLetter, drop it
+      case msg           ⇒ deadLetters.!(DeadLetter(msg, envelope.sender, receiver))(envelope.sender)
     }
     def dequeue() = null
     def hasMessages = false

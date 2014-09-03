@@ -5,7 +5,7 @@
 package akka.actor
 package dungeon
 
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 import ReceiveTimeout.emptyReceiveTimeoutData
 import akka.util.JSTimeoutTask
@@ -15,7 +15,7 @@ private[akka] object ReceiveTimeout {
     (Duration.Undefined, ActorCell.emptyCancellable)
 }
 
-private[akka] trait ReceiveTimeout { this: ActorCell =>
+private[akka] trait ReceiveTimeout { this: ActorCell ⇒
 
   import ReceiveTimeout._
   import ActorCell._
@@ -32,12 +32,12 @@ private[akka] trait ReceiveTimeout { this: ActorCell =>
     val recvtimeout = receiveTimeoutData
     //Only reschedule if desired and there are currently no more messages to be processed
     if (!mailbox.hasMessages) recvtimeout._1 match {
-      case f: FiniteDuration =>
+      case f: FiniteDuration ⇒
         recvtimeout._2.cancel() //Cancel any ongoing future
         val task = system.scheduler.scheduleOnce(f, self,
-            akka.actor.ReceiveTimeout)(this.dispatcher)
+          akka.actor.ReceiveTimeout)(this.dispatcher)
         receiveTimeoutData = (f, task)
-      case _ => cancelReceiveTimeout()
+      case _ ⇒ cancelReceiveTimeout()
     }
     else cancelReceiveTimeout()
 

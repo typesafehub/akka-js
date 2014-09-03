@@ -171,12 +171,12 @@ private[akka] object LocalActorRefProvider {
    * Root and user guardian
    */
   private class Guardian(override val supervisorStrategy: SupervisorStrategy)
-      extends Actor {
+    extends Actor {
 
     def receive = {
-      case Terminated(_)    => context.stop(self)
-      case StopChild(child) => context.stop(child)
-      case m                => context.system.deadLetters forward DeadLetter(m, sender, self)
+      case Terminated(_)    ⇒ context.stop(self)
+      case StopChild(child) ⇒ context.stop(child)
+      case m                ⇒ context.system.deadLetters forward DeadLetter(m, sender, self)
     }
 
     // guardian MUST NOT lose its children during restart
@@ -187,36 +187,36 @@ private[akka] object LocalActorRefProvider {
    * System guardian
    */
   private class SystemGuardian(
-      override val supervisorStrategy: SupervisorStrategy,
-      val guardian: ActorRef)
-      extends Actor {
+    override val supervisorStrategy: SupervisorStrategy,
+    val guardian: ActorRef)
+    extends Actor {
     import SystemGuardian._
 
     var terminationHooks = Set.empty[ActorRef]
 
     def receive = {
-      case Terminated(`guardian`) =>
+      case Terminated(`guardian`) ⇒
         // time for the systemGuardian to stop, but first notify all the
         // termination hooks, they will reply with TerminationHookDone
         // and when all are done the systemGuardian is stopped
         context.become(terminating)
         terminationHooks foreach { _ ! TerminationHook }
         stopWhenAllTerminationHooksDone()
-      case Terminated(a) =>
+      case Terminated(a) ⇒
         // a registered, and watched termination hook terminated before
         // termination process of guardian has started
         terminationHooks -= a
-      case StopChild(child) => context.stop(child)
-      case RegisterTerminationHook if sender != context.system.deadLetters =>
+      case StopChild(child) ⇒ context.stop(child)
+      case RegisterTerminationHook if sender != context.system.deadLetters ⇒
         terminationHooks += sender
         context watch sender
-      case m => context.system.deadLetters forward DeadLetter(m, sender, self)
+      case m ⇒ context.system.deadLetters forward DeadLetter(m, sender, self)
     }
 
     def terminating: Receive = {
-      case Terminated(a)       => stopWhenAllTerminationHooksDone(a)
-      case TerminationHookDone => stopWhenAllTerminationHooksDone(sender)
-      case m                   => context.system.deadLetters forward DeadLetter(m, sender, self)
+      case Terminated(a)       ⇒ stopWhenAllTerminationHooksDone(a)
+      case TerminationHookDone ⇒ stopWhenAllTerminationHooksDone(sender)
+      case m                   ⇒ context.system.deadLetters forward DeadLetter(m, sender, self)
     }
 
     def stopWhenAllTerminationHooksDone(remove: ActorRef): Unit = {
@@ -249,14 +249,14 @@ private[akka] class LocalActorRefProvider private[akka] (
   val eventStream: EventStream,
   //val dynamicAccess: DynamicAccess,
   //override val deployer: Deployer,
-  _deadLetters: Option[ActorPath => InternalActorRef])
+  _deadLetters: Option[ActorPath ⇒ InternalActorRef])
   extends ActorRefProvider {
 
   // this is the constructor needed for reflectively instantiating the provider
   def this(_systemName: String,
            settings: ActorSystem.Settings,
-           eventStream: EventStream/*,
-           dynamicAccess: DynamicAccess*/) =
+           eventStream: EventStream /*,
+           dynamicAccess: DynamicAccess*/ ) =
     this(_systemName,
       settings,
       eventStream,
@@ -264,7 +264,7 @@ private[akka] class LocalActorRefProvider private[akka] (
       //new Deployer(settings, dynamicAccess),
       None)
 
-  override val rootPath: ActorPath = RootActorPath(Address(/*"akka",*/ _systemName))
+  override val rootPath: ActorPath = RootActorPath(Address( /*"akka",*/ _systemName))
 
   //private[actors] val log: LoggingAdapter =
   //  Logging(eventStream, "LocalActorRefProvider(" + rootPath.address + ")")
@@ -276,7 +276,7 @@ private[akka] class LocalActorRefProvider private[akka] (
   }
 
   override val deadLetters: InternalActorRef =
-    _deadLetters.getOrElse((p: ActorPath) =>
+    _deadLetters.getOrElse((p: ActorPath) ⇒
       new DeadLetterActorRef(this, p, eventStream)).apply(rootPath / "deadLetters")
 
   /*
@@ -311,15 +311,15 @@ private[akka] class LocalActorRefProvider private[akka] (
       if (!stopped) {
         stopped = true
         terminationPromise.complete(
-            causeOfTermination.map(Failure(_)).getOrElse(Success(())))
+          causeOfTermination.map(Failure(_)).getOrElse(Success(())))
       }
     }
 
     override def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit = {
       if (!stopped) {
         message match {
-          case null => throw new InvalidMessageException("Message is null")
-          case _    =>
+          case null ⇒ throw new InvalidMessageException("Message is null")
+          case _ ⇒
             log.error(s"$this received unexpected message [$message]")
         }
       }
@@ -328,15 +328,15 @@ private[akka] class LocalActorRefProvider private[akka] (
     override def sendSystemMessage(message: SystemMessage): Unit = {
       if (!stopped) {
         message match {
-          case Failed(child, ex, _) =>
+          case Failed(child, ex, _) ⇒
             log.error(ex, s"guardian $child failed, shutting down!")
             causeOfTermination = Some(ex)
             child.asInstanceOf[InternalActorRef].stop()
-          case Supervise(_, _) =>
-            // TODO register child in some map to keep track of it and enable shutdown after all dead
-          case _: DeathWatchNotification =>
+          case Supervise(_, _) ⇒
+          // TODO register child in some map to keep track of it and enable shutdown after all dead
+          case _: DeathWatchNotification ⇒
             stop()
-          case _ =>
+          case _ ⇒
             log.error(s"$this received unexpected system message [$message]")
         }
       }
@@ -374,7 +374,7 @@ private[akka] class LocalActorRefProvider private[akka] (
    * Overridable supervision strategy to be used by the “/user” guardian.
    */
   protected def rootGuardianStrategy: SupervisorStrategy = OneForOneStrategy() {
-    case ex =>
+    case ex ⇒
       log.error(ex, "guardian failed, shutting down system")
       SupervisorStrategy.Stop
   }
@@ -384,7 +384,7 @@ private[akka] class LocalActorRefProvider private[akka] (
    */
   protected def guardianStrategy: SupervisorStrategy =
     SupervisorStrategy.defaultStrategy
-    //guardianSupervisorStrategyConfigurator.create()
+  //guardianSupervisorStrategyConfigurator.create()
 
   /**
    * Overridable supervision strategy to be used by the “/system” guardian.
@@ -395,22 +395,22 @@ private[akka] class LocalActorRefProvider private[akka] (
   val mailboxes: Mailboxes = new Mailboxes(deadLetters)
   private lazy val defaultDispatcher: MessageDispatcher =
     new MessageDispatcher(mailboxes)
-    //system.dispatchers.defaultGlobalDispatcher
+  //system.dispatchers.defaultGlobalDispatcher
 
   //private lazy val defaultMailbox = system.mailboxes.lookup(Mailboxes.DefaultMailboxId)
 
   override lazy val rootGuardian: LocalActorRef =
     new LocalActorRef(
-        system,
-        rootPath,
-        theOneWhoWalksTheBubblesOfSpaceTime,
-        Props(new LocalActorRefProvider.Guardian(rootGuardianStrategy)),
-        defaultDispatcher) {
+      system,
+      rootPath,
+      theOneWhoWalksTheBubblesOfSpaceTime,
+      Props(new LocalActorRefProvider.Guardian(rootGuardianStrategy)),
+      defaultDispatcher) {
       override def getParent: InternalActorRef = this
       override def getSingleChild(name: String): InternalActorRef = name match {
-        case "temp"        => tempContainer
-        case "deadLetters" => deadLetters
-        case other         =>
+        case "temp"        ⇒ tempContainer
+        case "deadLetters" ⇒ deadLetters
+        case other ⇒
           extraNames.get(other).getOrElse(super.getSingleChild(other))
       }
     }
@@ -423,8 +423,8 @@ private[akka] class LocalActorRefProvider private[akka] (
     val cell = rootGuardian.actorCell
     cell.checkChildNameAvailable("user")
     val ref = new LocalActorRef(system, (rootPath / "user") withUid 2, rootGuardian,
-        Props(new LocalActorRefProvider.Guardian(guardianStrategy)),
-        defaultDispatcher)
+      Props(new LocalActorRefProvider.Guardian(guardianStrategy)),
+      defaultDispatcher)
     cell.initChild(ref)
     ref.start()
     ref
@@ -434,15 +434,15 @@ private[akka] class LocalActorRefProvider private[akka] (
     val cell = rootGuardian.actorCell
     cell.checkChildNameAvailable("system")
     val ref = new LocalActorRef(system, (rootPath / "system") withUid 3, rootGuardian,
-        Props(new LocalActorRefProvider.SystemGuardian(systemGuardianStrategy, guardian)),
-        defaultDispatcher)
+      Props(new LocalActorRefProvider.SystemGuardian(systemGuardianStrategy, guardian)),
+      defaultDispatcher)
     cell.initChild(ref)
     ref.start()
     ref
   }
 
   lazy val tempContainer =
-    new VirtualPathContainer(system.provider, tempNode, rootGuardian/*, log*/)
+    new VirtualPathContainer(system.provider, tempNode, rootGuardian /*, log*/ )
 
   def registerTempActor(actorRef: InternalActorRef, path: ActorPath): Unit = {
     assert(path.parent eq tempNode, "cannot registerTempActor() with anything not obtained from tempPath()")
@@ -483,15 +483,15 @@ private[akka] class LocalActorRefProvider private[akka] (
    * INTERNAL API
    */
   private[akka] def resolveActorRef(ref: InternalActorRef,
-      pathElements: Iterable[String]): InternalActorRef =
+                                    pathElements: Iterable[String]): InternalActorRef =
     if (pathElements.isEmpty) {
       log.debug("resolve of empty path sequence fails (per definition)")
       deadLetters
     } else ref.getChild(pathElements.iterator) match {
-      case Nobody =>
+      case Nobody ⇒
         log.debug(s"resolve of path sequence [/${pathElements.mkString("/")}] failed")
         new EmptyLocalActorRef(system.provider, ref.path / pathElements, eventStream)
-      case x => x
+      case x ⇒ x
     }
 
   def actorOf(system: ActorSystemImpl, props: Props, supervisor: InternalActorRef, path: ActorPath,
