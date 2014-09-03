@@ -1,4 +1,4 @@
-import akkajs.AkkaJSBuild
+import akkajs.{AkkaJSBuild, Formatting}
 
 //import akkajs.Exclude
 
@@ -7,6 +7,8 @@ import scala.scalajs.sbtplugin.ScalaJSPlugin._ // import `%%%` extension method
 scalaJSSettings
 
 AkkaJSBuild.defaultSettings
+
+Formatting.formatSettings
 
 unmanagedSourceDirectories in Compile += baseDirectory.value / ".." / "akka-actor" / "src" / "main" / "scala"
 
