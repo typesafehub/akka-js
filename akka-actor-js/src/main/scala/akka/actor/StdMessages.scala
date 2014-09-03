@@ -61,8 +61,8 @@ final case class ActorIdentity(correlationId: Any, ref: Option[ActorRef])
  *   that the remote node hosting the watched actor was detected as unreachable
  */
 final case class Terminated private[akka] (actor: ActorRef)(
-    val existenceConfirmed: Boolean,
-    val addressTerminated: Boolean) extends AutoReceivedMessage with PossiblyHarmful
+  val existenceConfirmed: Boolean,
+  val addressTerminated: Boolean) extends AutoReceivedMessage with PossiblyHarmful
 
 /**
  * When using ActorContext.setReceiveTimeout, the singleton instance of
@@ -76,7 +76,7 @@ case object ReceiveTimeout extends PossiblyHarmful
  * message, it will be sent as a DeadLetter to the ActorSystem's EventStream
  */
 final case class DeadLetter(message: Any, sender: ActorRef,
-    recipient: ActorRef) {
+                            recipient: ActorRef) {
   require(sender ne null, "DeadLetter sender may not be null")
   require(recipient ne null, "DeadLetter recipient may not be null")
 }

@@ -8,8 +8,8 @@ import akka.actor._
 import akka.dispatch.sysmsg.SystemMessage
 
 private[akka] class WorkerActorRef(
-    system: WebWorkersActorSystem,
-    val path: ActorPath) extends InternalActorRef {
+  system: WebWorkersActorSystem,
+  val path: ActorPath) extends InternalActorRef {
 
   private[this] val pickledPath = PicklerRegistry.pickle(path)
 

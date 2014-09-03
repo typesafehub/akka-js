@@ -9,7 +9,7 @@ import scala.util.control.Exception.Catcher
 import akka.dispatch._
 import akka.dispatch.sysmsg._
 
-private[akka] trait Dispatch { this: ActorCell =>
+private[akka] trait Dispatch { this: ActorCell ⇒
 
   private var _mailbox: Mailbox = _
 
@@ -63,7 +63,7 @@ private[akka] trait Dispatch { this: ActorCell =>
     case NonFatal(e) ⇒
       // TODO publish to eventStream
       //system.eventStream.publish(Error(e, self.path.toString, clazz(actor), "swallowing exception during message send"))
-    Console.err.println(s"swallowing exception during message send: $e")
+      Console.err.println(s"swallowing exception during message send: $e")
   }
 
   final def suspend(): Unit = try dispatcher.systemDispatch(this, Suspend()) catch handleException

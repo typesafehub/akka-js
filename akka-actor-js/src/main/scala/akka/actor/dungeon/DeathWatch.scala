@@ -10,14 +10,14 @@ import scala.util.control.NonFatal
 
 import akka.event.Logging._
 
-private[akka] trait DeathWatch { this: ActorCell =>
+private[akka] trait DeathWatch { this: ActorCell ⇒
 
   private var watching: Set[ActorRef] = ActorCell.emptyActorRefSet
   private var watchedBy: Set[ActorRef] = ActorCell.emptyActorRefSet
   private var terminatedQueued: Set[ActorRef] = ActorCell.emptyActorRefSet
 
   override final def watch(subject: ActorRef): ActorRef = subject match {
-    case a: InternalActorRef =>
+    case a: InternalActorRef ⇒
       if (a != self && !watchingContains(a)) {
         maintainAddressTerminatedSubscription(a) {
           a.sendSystemMessage(Watch(a, self))
@@ -28,7 +28,7 @@ private[akka] trait DeathWatch { this: ActorCell =>
   }
 
   override final def unwatch(subject: ActorRef): ActorRef = subject match {
-    case a: InternalActorRef =>
+    case a: InternalActorRef ⇒
       if (a != self && watchingContains(a)) {
         a.sendSystemMessage(Unwatch(a, self))
         maintainAddressTerminatedSubscription(a) {
@@ -50,7 +50,7 @@ private[akka] trait DeathWatch { this: ActorCell =>
    * it will be propagated to user's receive.
    */
   protected def watchedActorTerminated(actor: ActorRef,
-      existenceConfirmed: Boolean, addressTerminated: Boolean): Unit = {
+                                       existenceConfirmed: Boolean, addressTerminated: Boolean): Unit = {
 
     if (isChild(actor))
       handleChildTerminated(actor)
@@ -107,7 +107,7 @@ private[akka] trait DeathWatch { this: ActorCell =>
       maintainAddressTerminatedSubscription() {
         try {
           watching foreach {
-            case watchee: InternalActorRef =>
+            case watchee: InternalActorRef ⇒
               watchee.sendSystemMessage(Unwatch(watchee, self))
           }
         } finally {
@@ -130,7 +130,7 @@ private[akka] trait DeathWatch { this: ActorCell =>
       watch(watchee)
     } else {
       publish(Warning(self.path.toString, clazz(actor),
-          "BUG: illegal Watch(%s,%s) for %s".format(watchee, watcher, self)))
+        "BUG: illegal Watch(%s,%s) for %s".format(watchee, watcher, self)))
     }
   }
 
@@ -147,14 +147,14 @@ private[akka] trait DeathWatch { this: ActorCell =>
       unwatch(watchee)
     } else {
       publish(Warning(self.path.toString, clazz(actor),
-          "BUG: illegal Unwatch(%s,%s) for %s".format(watchee, watcher, self)))
+        "BUG: illegal Unwatch(%s,%s) for %s".format(watchee, watcher, self)))
     }
   }
 
   protected def addressTerminated(address: Address): Unit = {
     // cleanup watchedBy since we know they are dead
     maintainAddressTerminatedSubscription() {
-      for (a <- watchedBy; if a.path.address == address) watchedBy -= a
+      for (a ← watchedBy; if a.path.address == address) watchedBy -= a
     }
 
     // send DeathWatchNotification to self for all matching subjects
@@ -163,10 +163,10 @@ private[akka] trait DeathWatch { this: ActorCell =>
     // When a parent is watching a child and it terminates due to AddressTerminated
     // it is removed by sending DeathWatchNotification with existenceConfirmed = true to support
     // immediate creation of child with same name.
-    for (a <- watching; if a.path.address == address) {
+    for (a ← watching; if a.path.address == address) {
       (self: InternalActorRef).sendSystemMessage(
-          DeathWatchNotification(a, existenceConfirmed = isChild(a),
-              addressTerminated = true))
+        DeathWatchNotification(a, existenceConfirmed = isChild(a),
+          addressTerminated = true))
     }
   }
 
@@ -177,11 +177,11 @@ private[akka] trait DeathWatch { this: ActorCell =>
    * block removes the last non-local ref from watching and watchedBy.
    */
   private def maintainAddressTerminatedSubscription[T](
-      change: ActorRef = null)(block: => T): T = {
+    change: ActorRef = null)(block: ⇒ T): T = {
     def isNonLocal(ref: ActorRef) = ref match {
       case null                              ⇒ true
-      case a: InternalActorRef if !a.isLocal => true
-      case _                                 => false
+      case a: InternalActorRef if !a.isLocal ⇒ true
+      case _                                 ⇒ false
     }
 
     if (isNonLocal(change)) {

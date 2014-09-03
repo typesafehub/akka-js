@@ -2,7 +2,7 @@ package akka.actor
 
 import scala.annotation.tailrec
 import scala.collection.immutable
-import java.lang.{ StringBuilder => JStringBuilder }
+import java.lang.{ StringBuilder ⇒ JStringBuilder }
 
 object ActorPath {
   /**
@@ -67,7 +67,7 @@ sealed trait ActorPath extends Comparable[ActorPath] {
    * Recursively create a descendant’s path by appending all child names.
    */
   def /(child: Iterable[String]): ActorPath =
-    (this /: child)((path, elem) => if (elem.isEmpty) path else path / elem)
+    (this /: child)((path, elem) ⇒ if (elem.isEmpty) path else path / elem)
 
   /**
    * Sequence of names for this path from root to this. Performance implication: has to allocate a list.
@@ -127,8 +127,8 @@ final case class RootActorPath(address: Address, name: String = "/") extends Act
   override def toSerializationFormatWithAddress(addr: Address): String = toStringWithAddress(addr)
 
   override def compareTo(other: ActorPath): Int = other match {
-    case r: RootActorPath  => toString compareTo r.toString // FIXME make this cheaper by comparing address and name in isolation
-    case c: ChildActorPath => 1
+    case r: RootActorPath  ⇒ toString compareTo r.toString // FIXME make this cheaper by comparing address and name in isolation
+    case c: ChildActorPath ⇒ 1
   }
 
   /**
@@ -142,19 +142,19 @@ final case class RootActorPath(address: Address, name: String = "/") extends Act
   override private[akka] def withUid(uid: Int): ActorPath =
     if (uid == ActorCell.undefinedUid) this
     else throw new IllegalStateException(
-        s"RootActorPath must have undefinedUid, [$uid != ${ActorCell.undefinedUid}")
+      s"RootActorPath must have undefinedUid, [$uid != ${ActorCell.undefinedUid}")
 }
 
 final case class ChildActorPath private[akka] (
-    val parent: ActorPath, val name: String)(
+  val parent: ActorPath, val name: String)(
     override private[akka] val uid: Int) extends ActorPath {
 
   if (name.indexOf('/') != -1)
     throw new IllegalArgumentException(
-        "/ is a path separator and is not legal in ActorPath names: [%s]" format name)
+      "/ is a path separator and is not legal in ActorPath names: [%s]" format name)
   if (name.indexOf('#') != -1)
     throw new IllegalArgumentException(
-        "# is a fragment separator and is not legal in ActorPath names: [%s]" format name)
+      "# is a fragment separator and is not legal in ActorPath names: [%s]" format name)
 
   override def address: Address = root.address
 
@@ -166,8 +166,8 @@ final case class ChildActorPath private[akka] (
   override def elements: immutable.Iterable[String] = {
     @tailrec
     def rec(p: ActorPath, acc: List[String]): immutable.Iterable[String] = p match {
-      case r: RootActorPath => acc
-      case _                => rec(p.parent, p.name :: acc)
+      case r: RootActorPath ⇒ acc
+      case _                ⇒ rec(p.parent, p.name :: acc)
     }
     rec(this, Nil)
   }
@@ -175,8 +175,8 @@ final case class ChildActorPath private[akka] (
   override def root: RootActorPath = {
     @tailrec
     def rec(p: ActorPath): RootActorPath = p match {
-      case r: RootActorPath => r
-      case _                => rec(p.parent)
+      case r: RootActorPath ⇒ r
+      case _                ⇒ rec(p.parent)
     }
     rec(this)
   }
@@ -194,8 +194,8 @@ final case class ChildActorPath private[akka] (
   private def toStringLength: Int = toStringOffset + name.length
 
   private val toStringOffset: Int = parent match {
-    case r: RootActorPath  => r.address.toString.length + r.name.length
-    case c: ChildActorPath => c.toStringLength + 1
+    case r: RootActorPath  ⇒ r.address.toString.length + r.name.length
+    case c: ChildActorPath ⇒ c.toStringLength + 1
   }
 
   override def toStringWithAddress(addr: Address): String = {
@@ -217,12 +217,12 @@ final case class ChildActorPath private[akka] (
    * and friends `WithAddress`
    * @param rootString function to construct the root element string
    */
-  private def buildToString(rootString: RootActorPath => String): String = {
+  private def buildToString(rootString: RootActorPath ⇒ String): String = {
     @tailrec
     def rec(p: ActorPath, suffix: String): String = p match {
-      case r: RootActorPath =>
+      case r: RootActorPath ⇒
         rootString(r) + suffix
-      case c: ChildActorPath =>
+      case c: ChildActorPath ⇒
         rec(c.parent, c.name + "/" + suffix)
     }
 

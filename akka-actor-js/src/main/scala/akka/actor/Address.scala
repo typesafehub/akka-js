@@ -1,7 +1,7 @@
 package akka.actor
 
 final case class Address private[akka] (
-    system: String, worker: Option[String]) {
+  system: String, worker: Option[String]) {
 
   /**
    * Returns true if this Address is only defined locally. It is not safe to

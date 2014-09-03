@@ -30,7 +30,7 @@ private[akka] object WebWorkersActorSystem {
   }
 }
 
-private[akka] trait WebWorkersActorSystem extends ActorSystem { this: ActorSystemImpl =>
+private[akka] trait WebWorkersActorSystem extends ActorSystem { this: ActorSystemImpl ⇒
   import WebWorkersActorSystem._
 
   registerPicklers()
@@ -47,16 +47,16 @@ private[akka] trait WebWorkersActorSystem extends ActorSystem { this: ActorSyste
   }
 
   private[webworkers] def sendMessageAcrossWorkers(destWorker: Address,
-      msg: Any, receiver: ActorRef, sender: ActorRef): Unit = {
+                                                   msg: Any, receiver: ActorRef, sender: ActorRef): Unit = {
     WebWorkerRouter.postMessageTo(destWorker,
-        picklerRegistry.pickle(SendMessage(msg, receiver, sender)))
+      picklerRegistry.pickle(SendMessage(msg, receiver, sender)))
   }
 
   // Handling messages arriving to my webworker
 
   private[webworkers] def deliverMessageFromRouter(pickle: js.Dynamic): Unit = {
     picklerRegistry.unpickle[js.Any](pickle) match {
-      case SendMessage(msg, receiver, sender) =>
+      case SendMessage(msg, receiver, sender) ⇒
         receiver.tell(msg, sender)
     }
   }
@@ -64,31 +64,31 @@ private[akka] trait WebWorkersActorSystem extends ActorSystem { this: ActorSyste
   /** Pickler registry which knows how to deal with ActorRefs. */
   object picklerRegistry extends PicklerRegistry {
     def pickle[P](value: Any)(implicit builder: PBuilder[P],
-        registry: PicklerRegistry): P = {
+                              registry: PicklerRegistry): P = {
       value match {
-        case ref: ActorRef =>
+        case ref: ActorRef ⇒
           val globalPath = globalizePath(ref.path)
           builder.makeObject(("ref", registry.pickle(globalPath)))
 
-        case _ =>
+        case _ ⇒
           PicklerRegistry.pickle(value)
       }
     }
 
     def unpickle[P](pickle: P)(implicit reader: PReader[P],
-        registry: PicklerRegistry): Any = {
+                               registry: PicklerRegistry): Any = {
       pickle match {
-        case null => null
+        case null ⇒ null
 
-        case _ if !reader.isUndefined(reader.readObjectField(pickle, "ref")) =>
+        case _ if !reader.isUndefined(reader.readObjectField(pickle, "ref")) ⇒
           val globalPath = registry.unpickle(reader.readObjectField(
-              pickle, "ref")).asInstanceOf[ActorPath]
+            pickle, "ref")).asInstanceOf[ActorPath]
           if (globalPath.address == workerAddress)
             resolveLocalActorPath(globalPath).getOrElse(deadLetters)
           else
             new WorkerActorRef(WebWorkersActorSystem.this, globalPath)
 
-        case _ =>
+        case _ ⇒
           PicklerRegistry.unpickle(pickle)
       }
     }

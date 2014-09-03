@@ -11,9 +11,9 @@ import akka.dispatch.sysmsg._
  * INTERNAL API
  */
 private[akka] class EmptyLocalActorRef(
-    override val provider: ActorRefProvider,
-    override val path: ActorPath,
-    val eventStream: EventStream) extends MinimalActorRef {
+  override val provider: ActorRefProvider,
+  override val path: ActorPath,
+  val eventStream: EventStream) extends MinimalActorRef {
 
   override def sendSystemMessage(message: SystemMessage): Unit = {
     //if (Mailbox.debug) println(s"ELAR $path having enqueued $message")
@@ -21,22 +21,22 @@ private[akka] class EmptyLocalActorRef(
   }
 
   override def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit = message match {
-    case null => throw new InvalidMessageException("Message is null")
-    case d: DeadLetter =>
+    case null ⇒ throw new InvalidMessageException("Message is null")
+    case d: DeadLetter ⇒
       specialHandle(d.message, d.sender) // do NOT form endless loops, since deadLetters will resend!
-    case _ if !specialHandle(message, sender) =>
-      //eventStream.publish(DeadLetter(message, if (sender eq Actor.noSender) provider.deadLetters else sender, this))
-    case _ =>
+    case _ if !specialHandle(message, sender) ⇒
+    //eventStream.publish(DeadLetter(message, if (sender eq Actor.noSender) provider.deadLetters else sender, this))
+    case _                                    ⇒
   }
 
   protected def specialHandle(msg: Any, sender: ActorRef): Boolean = msg match {
-    case w: Watch =>
+    case w: Watch ⇒
       if (w.watchee == this && w.watcher != this)
         w.watcher.sendSystemMessage(
           DeathWatchNotification(w.watchee, existenceConfirmed = false, addressTerminated = false))
       true
-    case _: Unwatch => true // Just ignore
-    case Identify(messageId) =>
+    case _: Unwatch ⇒ true // Just ignore
+    case Identify(messageId) ⇒
       sender ! ActorIdentity(messageId, None)
       true
     /*case s: SelectChildName =>
@@ -46,7 +46,7 @@ private[akka] class EmptyLocalActorRef(
           //eventStream.publish(DeadLetter(s.wrappedMessage, if (sender eq Actor.noSender) provider.deadLetters else sender, this))
       }
       true*/
-    case _ => false
+    case _ ⇒ false
   }
 }
 
@@ -57,26 +57,26 @@ private[akka] class EmptyLocalActorRef(
  * INTERNAL API
  */
 private[akka] class DeadLetterActorRef(_provider: ActorRefProvider,
-    _path: ActorPath, _eventStream: EventStream)
-    extends EmptyLocalActorRef(_provider, _path, _eventStream) {
+                                       _path: ActorPath, _eventStream: EventStream)
+  extends EmptyLocalActorRef(_provider, _path, _eventStream) {
 
   override def !(message: Any)(implicit sender: ActorRef = this): Unit = message match {
-    case null                => throw new InvalidMessageException("Message is null")
-    case Identify(messageId) => sender ! ActorIdentity(messageId, Some(this))
-    case d: DeadLetter       =>
+    case null                ⇒ throw new InvalidMessageException("Message is null")
+    case Identify(messageId) ⇒ sender ! ActorIdentity(messageId, Some(this))
+    case d: DeadLetter ⇒
       if (!specialHandle(d.message, d.sender))
-        ()//eventStream.publish(d)
-    case _ =>
+        () //eventStream.publish(d)
+    case _ ⇒
       if (!specialHandle(message, sender))
-        ()//eventStream.publish(DeadLetter(message, if (sender eq Actor.noSender) provider.deadLetters else sender, this))
+        () //eventStream.publish(DeadLetter(message, if (sender eq Actor.noSender) provider.deadLetters else sender, this))
   }
 
   override protected def specialHandle(msg: Any, sender: ActorRef): Boolean = msg match {
-    case w: Watch =>
+    case w: Watch ⇒
       if (w.watchee != this && w.watcher != this)
         w.watcher.sendSystemMessage(DeathWatchNotification(w.watchee,
-            existenceConfirmed = false, addressTerminated = false))
+          existenceConfirmed = false, addressTerminated = false))
       true
-    case _ => super.specialHandle(msg, sender)
+    case _ ⇒ super.specialHandle(msg, sender)
   }
 }

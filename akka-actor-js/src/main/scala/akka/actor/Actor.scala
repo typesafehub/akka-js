@@ -10,21 +10,21 @@ import scala.annotation.tailrec
  * For instance, if you try to create an Actor that doesn't extend Actor.
  */
 final case class IllegalActorStateException private[akka] (
-    message: String) extends AkkaException(message)
+  message: String) extends AkkaException(message)
 
 /**
  * ActorKilledException is thrown when an Actor receives the
  * [[org.scalajs.actors.Kill]] message
  */
 final case class ActorKilledException private[akka] (
-    message: String) extends AkkaException(message)
+  message: String) extends AkkaException(message)
 
 /**
  * An InvalidActorNameException is thrown when you try to convert something,
  * usually a String, to an Actor name which doesn't validate.
  */
 final case class InvalidActorNameException(
-    message: String) extends AkkaException(message)
+  message: String) extends AkkaException(message)
 
 /**
  * An ActorInitializationException is thrown when the the initialization logic
@@ -40,8 +40,8 @@ final case class InvalidActorNameException(
  * }}}
  */
 class ActorInitializationException protected (actor: ActorRef,
-    message: String, cause: Throwable)
-    extends AkkaException(message, cause) {
+                                              message: String, cause: Throwable)
+  extends AkkaException(message, cause) {
   def getActor(): ActorRef = actor
 }
 
@@ -66,12 +66,12 @@ object ActorInitializationException {
  * @param messageOption is the message which was optionally passed into preRestart()
  */
 final case class PreRestartException private[akka] (actor: ActorRef,
-    cause: Throwable, originalCause: Throwable, messageOption: Option[Any])
-    extends ActorInitializationException(actor,
-        "exception in preRestart(" +
-        (if (originalCause == null) "null" else originalCause.getClass) + ", " +
-        (messageOption match { case Some(m: AnyRef) => m.getClass; case _ => "None" }) +
-        ")", cause)
+                                                    cause: Throwable, originalCause: Throwable, messageOption: Option[Any])
+  extends ActorInitializationException(actor,
+    "exception in preRestart(" +
+      (if (originalCause == null) "null" else originalCause.getClass) + ", " +
+      (messageOption match { case Some(m: AnyRef) ⇒ m.getClass; case _ ⇒ "None" }) +
+      ")", cause)
 
 /**
  * A PostRestartException is thrown when constructor or postRestart() method
@@ -82,11 +82,11 @@ final case class PreRestartException private[akka] (actor: ActorRef,
  * @param originalCause is the exception which caused the restart in the first place
  */
 final case class PostRestartException private[akka] (actor: ActorRef,
-    cause: Throwable, originalCause: Throwable)
-    extends ActorInitializationException(actor,
-        "exception post restart (" + (
-            if (originalCause == null) "null"
-            else originalCause.getClass) + ")", cause)
+                                                     cause: Throwable, originalCause: Throwable)
+  extends ActorInitializationException(actor,
+    "exception post restart (" + (
+      if (originalCause == null) "null"
+      else originalCause.getClass) + ")", cause)
 
 /**
  * This is an extractor for retrieving the original cause (i.e. the first
@@ -97,8 +97,8 @@ final case class PostRestartException private[akka] (actor: ActorRef,
 object OriginalRestartException {
   def unapply(ex: PostRestartException): Option[Throwable] = {
     @tailrec def rec(ex: PostRestartException): Option[Throwable] = ex match {
-      case PostRestartException(_, _, e: PostRestartException) => rec(e)
-      case PostRestartException(_, _, e)                       => Some(e)
+      case PostRestartException(_, _, e: PostRestartException) ⇒ rec(e)
+      case PostRestartException(_, _, e)                       ⇒ Some(e)
     }
     rec(ex)
   }
@@ -110,7 +110,7 @@ object OriginalRestartException {
  * Currently only `null` is an invalid message.
  */
 final case class InvalidMessageException private[akka] (
-    message: String) extends AkkaException(message)
+  message: String) extends AkkaException(message)
 
 /**
  * A DeathPactException is thrown by an Actor that receives a
@@ -118,14 +118,14 @@ final case class InvalidMessageException private[akka] (
  * crashing the Actor and escalating to the supervisor.
  */
 final case class DeathPactException private[akka] (dead: ActorRef)
-    extends AkkaException("Monitored actor [" + dead + "] terminated")
+  extends AkkaException("Monitored actor [" + dead + "] terminated")
 
 /**
  * This message is published to the EventStream whenever an Actor receives a
  * message it doesn't understand.
  */
 final case class UnhandledMessage(message: Any, sender: ActorRef,
-    recipient: ActorRef)
+                                  recipient: ActorRef)
 
 /**
  * Classes for passing status back to the sender.
@@ -161,7 +161,7 @@ object Status {
  * }
  * }}}
  */
-trait ActorLogging { this: Actor =>
+trait ActorLogging { this: Actor ⇒
   //val log = akka.event.Logging(context.system, this)
   object log {
     import akka.event.Logging._
@@ -218,7 +218,7 @@ trait Actor {
   private[this] var _self: ActorRef = context.self
 
   private[akka] final def setActorFields(context: ActorContext,
-      self: ActorRef): Unit = {
+                                         self: ActorRef): Unit = {
     this._context = context
     this._self = self
   }
@@ -293,7 +293,7 @@ trait Actor {
    * up of resources before Actor is terminated.
    */
   def preRestart(reason: Throwable, message: Option[Any]): Unit = {
-    context.children foreach { child =>
+    context.children foreach { child ⇒
       context.unwatch(child)
       context.stop(child)
     }
@@ -323,8 +323,8 @@ trait Actor {
    */
   def unhandled(message: Any): Unit = {
     message match {
-      case Terminated(dead) => throw new DeathPactException(dead)
-      case _                =>
+      case Terminated(dead) ⇒ throw new DeathPactException(dead)
+      case _ ⇒
         context.system.eventStream.publish(UnhandledMessage(message, sender, self))
     }
   }

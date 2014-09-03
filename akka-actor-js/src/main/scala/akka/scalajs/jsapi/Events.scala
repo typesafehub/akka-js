@@ -4,11 +4,11 @@ import scala.scalajs.js
 
 trait EventTarget extends js.Object {
   def addEventListener(`type`: js.String,
-      listener: js.Function1[Event, _],
-      useCapture: js.Boolean): Unit = ???
+                       listener: js.Function1[Event, _],
+                       useCapture: js.Boolean): Unit = ???
   def removeEventListener(`type`: js.String,
-      listener: js.Function1[Event, _],
-      useCapture: js.Boolean): Unit = ???
+                          listener: js.Function1[Event, _],
+                          useCapture: js.Boolean): Unit = ???
 }
 
 class Event extends js.Object {

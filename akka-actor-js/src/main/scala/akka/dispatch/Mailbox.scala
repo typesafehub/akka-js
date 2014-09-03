@@ -30,7 +30,7 @@ private[akka] object Mailbox {
 }
 
 private[akka] class Mailbox(private[this] val messageQueue: MessageQueue)
-    extends Runnable {
+  extends Runnable {
   import Mailbox._
 
   private[this] var _actor: ActorCell = _ // = null
@@ -155,11 +155,11 @@ private[akka] class Mailbox(private[this] val messageQueue: MessageQueue)
   }
 
   final def canBeScheduledForExecution(hasMessageHint: Boolean,
-      hasSystemMessageHint: Boolean): Boolean = status match {
-    case Open | Scheduled =>
+                                       hasSystemMessageHint: Boolean): Boolean = status match {
+    case Open | Scheduled ⇒
       hasMessageHint || hasSystemMessageHint || hasSystemMessages || hasMessages
-    case Closed => false
-    case _      => hasSystemMessageHint || hasSystemMessages
+    case Closed ⇒ false
+    case _      ⇒ hasSystemMessageHint || hasSystemMessages
   }
 
   final def run(): Unit = {
@@ -178,8 +178,8 @@ private[akka] class Mailbox(private[this] val messageQueue: MessageQueue)
    * Process the messages in the mailbox
    */
   @tailrec private final def processMailbox(
-      left: Int = java.lang.Math.max(dispatcher.throughput, 1),
-      deadlineNs: Long = if (dispatcher.isThroughputDeadlineTimeDefined == true) System.nanoTime + dispatcher.throughputDeadlineTime.toNanos else 0L): Unit =
+    left: Int = java.lang.Math.max(dispatcher.throughput, 1),
+    deadlineNs: Long = if (dispatcher.isThroughputDeadlineTimeDefined == true) System.nanoTime + dispatcher.throughputDeadlineTime.toNanos else 0L): Unit =
     if (shouldProcessMessage) {
       val next = dequeue()
       if (next ne null) {
@@ -212,13 +212,13 @@ private[akka] class Mailbox(private[this] val messageQueue: MessageQueue)
       val msg = systemMessageQueue.dequeue()
       try dlm.systemEnqueue(actor.self, msg)
       catch {
-        case NonFatal(e) =>
+        case NonFatal(e) ⇒
           // TODO publish to event stream
           /*actor.system.eventStream.publish(
             Error(e, actor.self.path.toString, this.getClass,
                 "error while enqueuing " + msg + " to deadLetters: " + e.getMessage))*/
           Console.err.println(
-              s"error while enqueuing $msg to deadLetters: ${e.getMessage}")
+            s"error while enqueuing $msg to deadLetters: ${e.getMessage}")
       }
     }
   }

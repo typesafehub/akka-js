@@ -27,11 +27,11 @@ object LoggingReceive {
    * `akka.actor.debug.receive` is set in configuration.
    */
   def apply(r: Receive)(implicit context: ActorContext): Receive = r match {
-    case _: LoggingReceive => r
-    case _                 =>
+    case _: LoggingReceive ⇒ r
+    case _ ⇒
       //if (context.system.settings.AddLoggingReceive)
-        new LoggingReceive(None, r)
-      //else r
+      new LoggingReceive(None, r)
+    //else r
   }
 }
 
@@ -40,7 +40,7 @@ object LoggingReceive {
  * @param source the log source, if not defined the actor of the context will be used
  */
 class LoggingReceive(source: Option[AnyRef], r: Receive)(
-    implicit context: ActorContext) extends Receive {
+  implicit context: ActorContext) extends Receive {
 
   def isDefinedAt(o: Any): Boolean = {
     val handled = r.isDefinedAt(o)
@@ -49,7 +49,7 @@ class LoggingReceive(source: Option[AnyRef], r: Receive)(
     val str = context.asInstanceOf[ActorCell].actor.self.toString()
     val clazz = context.asInstanceOf[ActorCell].actor.getClass()
     context.system.eventStream.publish(Debug(str, clazz,
-        "received " + (if (handled) "handled" else "unhandled") + " message " + o))
+      "received " + (if (handled) "handled" else "unhandled") + " message " + o))
     handled
   }
 

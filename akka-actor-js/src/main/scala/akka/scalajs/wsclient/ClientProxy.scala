@@ -32,14 +32,14 @@ class ClientProxy(wsUrl: String, connectedHandler: ActorRef) extends AbstractPro
     super.preStart()
 
     webSocket = new WebSocket(wsUrl)
-    webSocket.addEventListener("message", { (event: Event) =>
+    webSocket.addEventListener("message", { (event: Event) ⇒
       self ! IncomingMessage(js.JSON.parse(
-          event.asInstanceOf[MessageEvent].data.toString()))
+        event.asInstanceOf[MessageEvent].data.toString()))
     }, useCapture = false)
-    webSocket.addEventListener("close", { (event: Event) =>
+    webSocket.addEventListener("close", { (event: Event) ⇒
       self ! ConnectionClosed
     }, useCapture = false)
-    webSocket.addEventListener("error", { (event: Event) =>
+    webSocket.addEventListener("error", { (event: Event) ⇒
       self ! ConnectionError
     }, useCapture = false)
   }
@@ -50,12 +50,12 @@ class ClientProxy(wsUrl: String, connectedHandler: ActorRef) extends AbstractPro
   }
 
   override def receive = super.receive.orElse[Any, Unit] {
-    case ConnectionError =>
+    case ConnectionError ⇒
       throw new akka.AkkaException("WebSocket connection error")
   }
 
   override def receiveFromPeer = super.receiveFromPeer.orElse[Any, Unit] {
-    case Welcome(entryPointRef) =>
+    case Welcome(entryPointRef) ⇒
       val msg = WebSocketConnected(entryPointRef)
       if (connectedHandler eq null) context.parent ! msg
       else connectedHandler ! msg

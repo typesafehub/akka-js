@@ -63,8 +63,8 @@ trait Scheduler {
    * Scala API
    */
   def schedule(
-      initialDelay: FiniteDuration,
-      interval: FiniteDuration)(f: => Unit)(
+    initialDelay: FiniteDuration,
+    interval: FiniteDuration)(f: ⇒ Unit)(
       implicit executor: ExecutionContext): Cancellable
 
   /**
@@ -74,8 +74,8 @@ trait Scheduler {
    * Java & Scala API
    */
   final def scheduleOnce(delay: FiniteDuration, receiver: ActorRef,
-      message: Any)(implicit executor: ExecutionContext,
-      sender: ActorRef = Actor.noSender): Cancellable = {
+                         message: Any)(implicit executor: ExecutionContext,
+                                       sender: ActorRef = Actor.noSender): Cancellable = {
     scheduleOnce(delay) {
       receiver ! message
     }
@@ -87,8 +87,8 @@ trait Scheduler {
    *
    * Scala API
    */
-  def scheduleOnce(delay: FiniteDuration)(f: => Unit)(
-      implicit executor: ExecutionContext): Cancellable
+  def scheduleOnce(delay: FiniteDuration)(f: ⇒ Unit)(
+    implicit executor: ExecutionContext): Cancellable
 
   /**
    * Schedules a Runnable to be run once with a delay, i.e. a time period that
@@ -97,7 +97,7 @@ trait Scheduler {
    * Java & Scala API
    */
   final def scheduleOnce(delay: FiniteDuration, runnable: Runnable)(
-      implicit executor: ExecutionContext): Cancellable = {
+    implicit executor: ExecutionContext): Cancellable = {
     scheduleOnce(delay)(runnable.run())
   }
 
@@ -112,14 +112,14 @@ trait Scheduler {
 class EventLoopScheduler extends Scheduler {
 
   def schedule(
-      initialDelay: FiniteDuration,
-      interval: FiniteDuration)(f: => Unit)(
+    initialDelay: FiniteDuration,
+    interval: FiniteDuration)(f: ⇒ Unit)(
       implicit executor: ExecutionContext): Cancellable = {
     JSTimeoutThenIntervalTask(initialDelay, interval)(f)
   }
 
-  def scheduleOnce(delay: FiniteDuration)(f: => Unit)(
-      implicit executor: ExecutionContext): Cancellable = {
+  def scheduleOnce(delay: FiniteDuration)(f: ⇒ Unit)(
+    implicit executor: ExecutionContext): Cancellable = {
     JSTimeoutTask(delay)(f)
   }
 

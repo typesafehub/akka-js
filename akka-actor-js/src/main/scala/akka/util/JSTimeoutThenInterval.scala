@@ -1,11 +1,11 @@
 package akka.util
 
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 import akka.actor.Cancellable
 
 class JSTimeoutThenIntervalTask(initialDelay: FiniteDuration,
-    interval: FiniteDuration, task: => Any) extends Cancellable {
+                                interval: FiniteDuration, task: ⇒ Any) extends Cancellable {
 
   private[this] var underlying: Cancellable = JSTimeoutTask(initialDelay) {
     underlying = JSIntervalTask(interval) {
@@ -21,6 +21,6 @@ class JSTimeoutThenIntervalTask(initialDelay: FiniteDuration,
 
 object JSTimeoutThenIntervalTask {
   def apply(initialDelay: FiniteDuration, interval: FiniteDuration)(
-      task: => Any): JSTimeoutThenIntervalTask =
+    task: ⇒ Any): JSTimeoutThenIntervalTask =
     new JSTimeoutThenIntervalTask(initialDelay, interval, task)
 }

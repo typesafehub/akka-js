@@ -5,7 +5,7 @@ import scala.concurrent.duration.FiniteDuration
 import akka.scalajs.jsapi.Timers
 import akka.actor.Cancellable
 
-class JSIntervalTask(interval: FiniteDuration, task: => Any) extends Cancellable {
+class JSIntervalTask(interval: FiniteDuration, task: ⇒ Any) extends Cancellable {
   private[this] var underlying: Option[Timers.IntervalID] =
     Some(Timers.setInterval(interval)(task))
 
@@ -22,6 +22,6 @@ class JSIntervalTask(interval: FiniteDuration, task: => Any) extends Cancellable
 }
 
 object JSIntervalTask {
-  def apply(interval: FiniteDuration)(task: => Any): JSIntervalTask =
+  def apply(interval: FiniteDuration)(task: ⇒ Any): JSIntervalTask =
     new JSIntervalTask(interval, task)
 }

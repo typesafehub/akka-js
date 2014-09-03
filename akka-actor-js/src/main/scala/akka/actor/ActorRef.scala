@@ -30,7 +30,7 @@ import akka.dispatch.sysmsg.SystemMessage
  * about the exact actor incarnation you can use the ``ActorPath`` as key because
  * the unique id of the actor is not taken into account when comparing actor paths.
  */
-abstract class ActorRef { internalRef: InternalActorRef =>
+abstract class ActorRef { internalRef: InternalActorRef ⇒
 
   def path: ActorPath
 
@@ -69,8 +69,7 @@ abstract class ActorRef { internalRef: InternalActorRef =>
       if (this.path.uid < other.path.uid) -1
       else if (this.path.uid == other.path.uid) 0
       else 1
-    }
-    else x
+    } else x
   }
 
   final override def hashCode: Int = {
@@ -82,8 +81,8 @@ abstract class ActorRef { internalRef: InternalActorRef =>
    * Equals takes path and the unique id of the actor cell into account.
    */
   final override def equals(that: Any): Boolean = that match {
-    case other: ActorRef => path.uid == other.path.uid && path == other.path
-    case _               => false
+    case other: ActorRef ⇒ path.uid == other.path.uid && path == other.path
+    case _               ⇒ false
   }
 
   override def toString: String =

@@ -34,7 +34,7 @@ object ActorSystem {
    *
    * @see <a href="http://typesafehub.github.com/config/v0.4.1/" target="_blank">The Typesafe Config Library API Documentation</a>
    */
-  class Settings(final val name: String) {
+  class Settings( final val name: String) {
 
     final val LogDeadLetters: Int = 0
     final val LogDeadLettersDuringShutdown: Boolean = false
@@ -62,12 +62,12 @@ abstract class ActorSystem(val settings: ActorSystem.Settings) extends ActorRefF
   def shutdown(): Unit
 
   def sendToPath(path: ActorPath, message: Any)(
-      implicit sender: ActorRef = Actor.noSender): Unit
+    implicit sender: ActorRef = Actor.noSender): Unit
 }
 
 class ActorSystemImpl(_settings: ActorSystem.Settings)
-    extends ActorSystem(_settings)
-       with akka.scalajs.webworkers.WebWorkersActorSystem {
+  extends ActorSystem(_settings)
+  with akka.scalajs.webworkers.WebWorkersActorSystem {
 
   protected def systemImpl = this
 
@@ -81,16 +81,16 @@ class ActorSystemImpl(_settings: ActorSystem.Settings)
     val guard = guardian.path
     val sys = systemGuardian.path
     path.parent match {
-      case `guard` => guardian ! StopChild(actor)
-      case `sys`   => systemGuardian ! StopChild(actor)
-      case _       => actor.asInstanceOf[InternalActorRef].stop()
+      case `guard` ⇒ guardian ! StopChild(actor)
+      case `sys`   ⇒ systemGuardian ! StopChild(actor)
+      case _       ⇒ actor.asInstanceOf[InternalActorRef].stop()
     }
   }
 
   val scheduler: Scheduler = new EventLoopScheduler
   val eventStream: EventStream = new EventStream
   val provider: ActorRefProvider = new LocalActorRefProvider(
-      name, settings, eventStream)
+    name, settings, eventStream)
 
   def deadLetters: ActorRef = provider.deadLetters
 
@@ -123,7 +123,7 @@ class ActorSystemImpl(_settings: ActorSystem.Settings)
   }
 
   override def sendToPath(path: ActorPath, message: Any)(
-      implicit sender: ActorRef): Unit = {
+    implicit sender: ActorRef): Unit = {
     // FIXME The existence of this method is a hack! Need to find a solution.
     new akka.scalajs.webworkers.WorkerActorRef(this, path) ! message
   }
@@ -131,10 +131,10 @@ class ActorSystemImpl(_settings: ActorSystem.Settings)
   def resolveLocalActorPath(path: ActorPath): Option[ActorRef] = {
     println(path.elements)
     //Some(provider.resolveActorRef(provider.rootPath / path.elements))
-    val result = path.elements.tail.foldLeft(provider.guardian) { (parent, childName) =>
+    val result = path.elements.tail.foldLeft(provider.guardian) { (parent, childName) ⇒
       parent.actorCell.child(childName) match {
-        case Some(child: LocalActorRef) => child
-        case x =>
+        case Some(child: LocalActorRef) ⇒ child
+        case x ⇒
           println(s"$parent of name ${parent.path}.child($childName) = $x")
           return None
       }

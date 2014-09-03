@@ -1,11 +1,11 @@
 package akka.actor
 
-import scala.annotation.{tailrec, switch}
+import scala.annotation.{ tailrec, switch }
 
 import scala.collection.immutable
 import scala.util.control.NonFatal
 
-import akka.dispatch.{MessageDispatcher, Envelope}
+import akka.dispatch.{ MessageDispatcher, Envelope }
 import akka.event.Logging._
 import akka.dispatch.sysmsg._
 
@@ -43,17 +43,16 @@ private[akka] object ActorCell {
 }
 
 private[akka] class ActorCell(
-    val system: ActorSystem,
-    val props: Props,
-    val dispatcher: MessageDispatcher,
-    val self: ActorRef,
-    _parent: ActorRef
-) extends ActorContext
-     with dungeon.Children
-     with dungeon.Dispatch
-     with dungeon.ReceiveTimeout
-     with dungeon.DeathWatch
-     with dungeon.FaultHandling {
+  val system: ActorSystem,
+  val props: Props,
+  val dispatcher: MessageDispatcher,
+  val self: ActorRef,
+  _parent: ActorRef) extends ActorContext
+  with dungeon.Children
+  with dungeon.Dispatch
+  with dungeon.ReceiveTimeout
+  with dungeon.DeathWatch
+  with dungeon.FaultHandling {
 
   import Actor._
   import ActorCell._
@@ -61,7 +60,7 @@ private[akka] class ActorCell(
   val parent: InternalActorRef = _parent
 
   final def systemImpl = system.asInstanceOf[ActorSystemImpl]
-  protected final def guardian = self   // huh??
+  protected final def guardian = self // huh??
   protected final def lookupRoot = self // huh??
   final def provider = system.provider
 
@@ -86,15 +85,15 @@ private[akka] class ActorCell(
   }
 
   final def sender: ActorRef = currentMessage match {
-    case null                      => system.deadLetters
-    case msg if msg.sender ne null => msg.sender
-    case _                         => system.deadLetters
+    case null                      ⇒ system.deadLetters
+    case msg if msg.sender ne null ⇒ msg.sender
+    case _                         ⇒ system.deadLetters
   }
 
   def become(behavior: Actor.Receive, discardOld: Boolean = true): Unit = {
     behaviorStack = behavior :: (
-        if (discardOld && behaviorStack.nonEmpty) behaviorStack.tail
-        else behaviorStack)
+      if (discardOld && behaviorStack.nonEmpty) behaviorStack.tail
+      else behaviorStack)
   }
 
   def unbecome(): Unit = {
@@ -145,20 +144,20 @@ private[akka] class ActorCell(
       val message = messages.head
       try {
         message match {
-          case message: SystemMessage if shouldStash(message, currentState) => stash(message)
-          case f: Failed => handleFailure(f)
-          case DeathWatchNotification(a, ec, at) => watchedActorTerminated(a, ec, at)
-          case Create(failure) => create(failure)
-          case Watch(watchee, watcher) => addWatcher(watchee, watcher)
-          case Unwatch(watchee, watcher) => remWatcher(watchee, watcher)
-          case Recreate(cause) => faultRecreate(cause)
-          case Suspend() => faultSuspend()
-          case Resume(inRespToFailure) => faultResume(inRespToFailure)
-          case Terminate() => terminate()
-          case Supervise(child, async) => supervise(child, async)
-          case NoMessage => // only here to suppress warning
+          case message: SystemMessage if shouldStash(message, currentState) ⇒ stash(message)
+          case f: Failed ⇒ handleFailure(f)
+          case DeathWatchNotification(a, ec, at) ⇒ watchedActorTerminated(a, ec, at)
+          case Create(failure) ⇒ create(failure)
+          case Watch(watchee, watcher) ⇒ addWatcher(watchee, watcher)
+          case Unwatch(watchee, watcher) ⇒ remWatcher(watchee, watcher)
+          case Recreate(cause) ⇒ faultRecreate(cause)
+          case Suspend() ⇒ faultSuspend()
+          case Resume(inRespToFailure) ⇒ faultResume(inRespToFailure)
+          case Terminate() ⇒ terminate()
+          case Supervise(child, async) ⇒ supervise(child, async)
+          case NoMessage ⇒ // only here to suppress warning
         }
-      } catch handleNonFatalOrInterruptedException { e =>
+      } catch handleNonFatalOrInterruptedException { e ⇒
         handleInvokeFailure(Nil, e)
       }
       val newState = calculateState
@@ -179,11 +178,11 @@ private[akka] class ActorCell(
     currentMessage = messageHandle
     cancelReceiveTimeout() // FIXME: leave this here???
     messageHandle.message match {
-      case msg: AutoReceivedMessage => autoReceiveMessage(messageHandle)
-      case msg                      => receiveMessage(msg)
+      case msg: AutoReceivedMessage ⇒ autoReceiveMessage(messageHandle)
+      case msg                      ⇒ receiveMessage(msg)
     }
     currentMessage = null // reset current message after successful invocation
-  } catch handleNonFatalOrInterruptedException { e =>
+  } catch handleNonFatalOrInterruptedException { e ⇒
     handleInvokeFailure(Nil, e)
   } finally {
     checkReceiveTimeout() // Reschedule receive timeout
@@ -191,10 +190,10 @@ private[akka] class ActorCell(
 
   def autoReceiveMessage(msg: Envelope): Unit = {
     msg.message match {
-      case t: Terminated              => receivedTerminated(t)
+      case t: Terminated       ⇒ receivedTerminated(t)
       //case AddressTerminated(address) => addressTerminated(address)
-      case Kill                       => throw new ActorKilledException("Kill")
-      case PoisonPill                 => (self: InternalActorRef).stop()
+      case Kill                ⇒ throw new ActorKilledException("Kill")
+      case PoisonPill          ⇒ (self: InternalActorRef).stop()
       /*case SelectParent(m) =>
         if (self == system.provider.rootGuardian) self.tell(m, msg.sender)
         else parent.tell(m, msg.sender)
@@ -215,7 +214,7 @@ private[akka] class ActorCell(
         } else
           selectChild()
       case SelectChildPattern(p, m) => for (c <- children if p.matcher(c.path.name).matches) c.tell(m, msg.sender)*/
-      case Identify(messageId)      => sender ! ActorIdentity(messageId, Some(self))
+      case Identify(messageId) ⇒ sender ! ActorIdentity(messageId, Some(self))
     }
   }
 
@@ -236,7 +235,7 @@ private[akka] class ActorCell(
 
       if (instance eq null)
         throw ActorInitializationException(self,
-            "Actor instance passed to actorOf can't be 'null'")
+          "Actor instance passed to actorOf can't be 'null'")
 
       // If no becomes were issued, the actors behavior is its receive method
       behaviorStack =
@@ -247,8 +246,8 @@ private[akka] class ActorCell(
       val stackAfter = contextStack
       if (stackAfter.nonEmpty)
         contextStack = (
-            if (stackAfter.head eq null) stackAfter.tail.tail
-            else stackAfter.tail) // pop null marker plus our context
+          if (stackAfter.head eq null) stackAfter.tail.tail
+          else stackAfter.tail) // pop null marker plus our context
     }
   }
 
@@ -268,15 +267,15 @@ private[akka] class ActorCell(
       created.preStart()
       checkReceiveTimeout()
     } catch {
-      case NonFatal(e) =>
+      case NonFatal(e) ⇒
         clearOutActorIfNonNull()
         e match {
-          case i: InstantiationException => throw ActorInitializationException(self,
+          case i: InstantiationException ⇒ throw ActorInitializationException(self,
             """exception during creation, this problem is likely to occur because the class of the Actor you tried to create is either,
                a non-static inner class (in which case make it a static inner class or use Props(new ...) or Props( new UntypedActorFactory ... )
                or is missing an appropriate, reachable no-args constructor.
               """, i.getCause)
-          case x => throw ActorInitializationException(self, "exception during creation", x)
+          case x ⇒ throw ActorInitializationException(self, "exception during creation", x)
         }
     }
   }
@@ -309,7 +308,7 @@ private[akka] class ActorCell(
   // logging is not the main purpose, and if it fails there’s nothing we can do
   protected final def publish(e: LogEvent): Unit =
     try system.eventStream.publish(e)
-    catch { case NonFatal(_) => }
+    catch { case NonFatal(_) ⇒ }
 
   protected final def clazz(o: AnyRef): Class[_] =
     if (o eq null) this.getClass else o.getClass

@@ -135,16 +135,16 @@ final class AskableActorRef(val actorRef: ActorRef) extends AnyVal {
     /*case ref: InternalActorRef if ref.isTerminated =>
       actorRef ! message
       Future.failed[Any](new AskTimeoutException(s"Recipient[$actorRef] had already been terminated."))*/
-    case ref: InternalActorRef =>
+    case ref: InternalActorRef ⇒
       if (timeout.duration.length <= 0) {
         Future.failed[Any](new IllegalArgumentException(
-            s"Timeout length must not be negative, question not sent to [$actorRef]"))
+          s"Timeout length must not be negative, question not sent to [$actorRef]"))
       } else {
         val a = PromiseActorRef(ref.provider, timeout)
         actorRef.tell(message, a)
         a.result.future
       }
-    case _ => Future.failed[Any](new IllegalArgumentException(s"Unsupported recipient ActorRef type, question not sent to [$actorRef]"))
+    case _ ⇒ Future.failed[Any](new IllegalArgumentException(s"Unsupported recipient ActorRef type, question not sent to [$actorRef]"))
   }
 
   def ?(message: Any)(implicit timeout: Timeout): Future[Any] = ask(message)(timeout)
@@ -178,8 +178,8 @@ final class AskableActorRef(val actorRef: ActorRef) extends AnyVal {
  * INTERNAL API
  */
 private[akka] final class PromiseActorRef private (
-    val provider: ActorRefProvider, val result: Promise[Any])
-    extends MinimalActorRef {
+  val provider: ActorRefProvider, val result: Promise[Any])
+  extends MinimalActorRef {
 
   import PromiseActorRef._
 
@@ -201,18 +201,18 @@ private[akka] final class PromiseActorRef private (
 
   // Returns false if the Promise is already completed
   private[this] final def addWatcher(watcher: ActorRef): Boolean = watchedBy match {
-    case null  => false
-    case other => watchedBy = other + watcher; true
+    case null  ⇒ false
+    case other ⇒ watchedBy = other + watcher; true
   }
 
   private[this] final def remWatcher(watcher: ActorRef): Unit = watchedBy match {
-    case null  => ()
-    case other => watchedBy = other - watcher
+    case null  ⇒ ()
+    case other ⇒ watchedBy = other - watcher
   }
 
   private[this] final def clearWatchers(): Set[ActorRef] = watchedBy match {
-    case null  => ActorCell.emptyActorRefSet
-    case other => watchedBy = null; other
+    case null  ⇒ ActorCell.emptyActorRefSet
+    case other ⇒ watchedBy = null; other
   }
 
   override def getParent: InternalActorRef = provider.tempContainer
@@ -227,7 +227,7 @@ private[akka] final class PromiseActorRef private (
    */
   @tailrec
   def path: ActorPath = state match {
-    case null =>
+    case null ⇒
       state = Registering
       var p: ActorPath = null
       try {
@@ -237,49 +237,49 @@ private[akka] final class PromiseActorRef private (
       } finally {
         state = p
       }
-    case p: ActorPath       => p
-    case StoppedWithPath(p) => p
-    case Stopped =>
+    case p: ActorPath       ⇒ p
+    case StoppedWithPath(p) ⇒ p
+    case Stopped ⇒
       // even if we are already stopped we still need to produce a proper path
       state = StoppedWithPath(provider.tempPath())
       path
-    case Registering => path // spin until registration is completed
+    case Registering ⇒ path // spin until registration is completed
   }
 
   override def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit = state match {
-    case Stopped | _: StoppedWithPath => provider.deadLetters ! message
-    case _ =>
+    case Stopped | _: StoppedWithPath ⇒ provider.deadLetters ! message
+    case _ ⇒
       if (message == null) throw new InvalidMessageException("Message is null")
       if (!(result.tryComplete(
         message match {
-          case Status.Success(r) => Success(r)
-          case Status.Failure(f) => Failure(f)
-          case other             => Success(other)
+          case Status.Success(r) ⇒ Success(r)
+          case Status.Failure(f) ⇒ Failure(f)
+          case other             ⇒ Success(other)
         }))) provider.deadLetters ! message
   }
 
   override def sendSystemMessage(message: SystemMessage): Unit = message match {
-    case _: Terminate =>
+    case _: Terminate ⇒
       stop()
-    case DeathWatchNotification(a, ec, at) =>
+    case DeathWatchNotification(a, ec, at) ⇒
       this.!(Terminated(a)(existenceConfirmed = ec, addressTerminated = at))
-    case Watch(watchee, watcher) =>
+    case Watch(watchee, watcher) ⇒
       if (watchee == this && watcher != this) {
         if (!addWatcher(watcher)) {
           watcher.sendSystemMessage(DeathWatchNotification(
-              watchee, existenceConfirmed = true, addressTerminated = false))
+            watchee, existenceConfirmed = true, addressTerminated = false))
         }
       } else {
         System.err.println("BUG: illegal Watch(%s,%s) for %s".format(
-            watchee, watcher, this))
+          watchee, watcher, this))
       }
-    case Unwatch(watchee, watcher) =>
+    case Unwatch(watchee, watcher) ⇒
       if (watchee == this && watcher != this) remWatcher(watcher)
       else {
         System.err.println("BUG: illegal Unwatch(%s,%s) for %s".format(
-            watchee, watcher, this))
+          watchee, watcher, this))
       }
-    case _ =>
+    case _ ⇒
   }
 
   @tailrec
@@ -288,22 +288,22 @@ private[akka] final class PromiseActorRef private (
       result tryComplete Failure(new ActorKilledException("Stopped"))
       val watchers = clearWatchers()
       if (!watchers.isEmpty) {
-        watchers foreach { watcher =>
+        watchers foreach { watcher ⇒
           watcher.asInstanceOf[InternalActorRef].sendSystemMessage(
-              DeathWatchNotification(watcher, existenceConfirmed = true,
-                  addressTerminated = false))
+            DeathWatchNotification(watcher, existenceConfirmed = true,
+              addressTerminated = false))
         }
       }
     }
     state match {
-      case null => // if path was never queried nobody can possibly be watching us, so we don't have to publish termination either
+      case null ⇒ // if path was never queried nobody can possibly be watching us, so we don't have to publish termination either
         state = Stopped
         ensureCompleted()
-      case p: ActorPath =>
+      case p: ActorPath ⇒
         state = StoppedWithPath(p)
         try ensureCompleted() finally provider.unregisterTempActor(p)
-      case Stopped | _: StoppedWithPath => // already stopped
-      case Registering                  => stop() // spin until registration is completed before stopping
+      case Stopped | _: StoppedWithPath ⇒ // already stopped
+      case Registering                  ⇒ stop() // spin until registration is completed before stopping
     }
   }
 }
@@ -325,7 +325,7 @@ private[akka] object PromiseActorRef {
     val f = scheduler.scheduleOnce(timeout.duration) {
       result tryComplete Failure(new AskTimeoutException("Timed out"))
     }
-    result.future onComplete { _ => try a.stop() finally f.cancel() }
+    result.future onComplete { _ ⇒ try a.stop() finally f.cancel() }
     a
   }
 }

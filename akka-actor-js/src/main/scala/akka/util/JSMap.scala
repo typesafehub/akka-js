@@ -6,7 +6,7 @@ import scala.scalajs.js
 import js.annotation.JSBracketAccess
 
 final class JSMap[A] private () extends Map[String, A]
-                                   with MapLike[String, A, JSMap[A]] {
+  with MapLike[String, A, JSMap[A]] {
   private[this] val dict: js.Dictionary[A] = js.Dictionary.empty[A]
 
   override def empty: JSMap[A] = new JSMap[A]
@@ -28,7 +28,7 @@ final class JSMap[A] private () extends Map[String, A]
 
   override def iterator: Iterator[(String, A)] = {
     for {
-      key <- js.Object.keys(dict).iterator
+      key ← js.Object.keys(dict).iterator
     } yield {
       (key, dict(key))
     }
