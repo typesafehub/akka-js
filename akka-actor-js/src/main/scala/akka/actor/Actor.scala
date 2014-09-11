@@ -121,6 +121,13 @@ final case class DeathPactException private[akka] (dead: ActorRef)
   extends AkkaException("Monitored actor [" + dead + "] terminated")
 
 /**
+ * When an InterruptedException is thrown inside an Actor, it is wrapped as an ActorInterruptedException as to
+ * avoid cascading interrupts to other threads than the originally interrupted one.
+ */
+@SerialVersionUID(1L)
+class ActorInterruptedException private[akka] (cause: Throwable) extends AkkaException(cause.getMessage, cause)
+
+/**
  * This message is published to the EventStream whenever an Actor receives a
  * message it doesn't understand.
  */

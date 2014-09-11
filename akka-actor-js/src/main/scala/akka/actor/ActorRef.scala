@@ -91,6 +91,15 @@ abstract class ActorRef { internalRef: InternalActorRef ⇒
 }
 
 /**
+ * All ActorRefs have a scope which describes where they live. Since it is
+ * often necessary to distinguish between local and non-local references, this
+ * is the only method provided on the scope.
+ */
+private[akka] trait ActorRefScope {
+  def isLocal: Boolean
+}
+
+/**
  * Internal trait for assembling all the functionality needed internally on
  * ActorRefs. NOTE THAT THIS IS NOT A STABLE EXTERNAL INTERFACE!
  */
