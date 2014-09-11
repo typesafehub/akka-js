@@ -64,7 +64,7 @@ private[akka] trait FaultHandling { this: ActorCell ⇒
         val optionalMessage = if (currentMessage ne null) Some(currentMessage.message) else None
         try {
           // if the actor fails in preRestart, we can do nothing but log it: it’s best-effort
-          if (failedActor.context ne null) failedActor.preRestart(cause, optionalMessage)
+          if (failedActor.context ne null) failedActor.aroundPreRestart(cause, optionalMessage)
         } catch handleNonFatalOrInterruptedException { e ⇒
           val ex = new PreRestartException(self, e, cause, optionalMessage)
           publish(Error(ex, self.path.toString, clazz(failedActor), e.getMessage))

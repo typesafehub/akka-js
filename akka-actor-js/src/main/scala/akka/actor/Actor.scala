@@ -266,6 +266,36 @@ trait Actor {
   def receive: Actor.Receive
 
   /**
+   * INTERNAL API.
+   *
+   * Can be overridden to intercept calls to this actor's current behavior.
+   *
+   * @param receive current behavior.
+   * @param msg current message.
+   */
+  protected[akka] def aroundReceive(receive: Actor.Receive, msg: Any): Unit = receive.applyOrElse(msg, unhandled)
+
+  /**
+   * Can be overridden to intercept calls to `preStart`. Calls `preStart` by default.
+   */
+  protected[akka] def aroundPreStart(): Unit = preStart()
+
+  /**
+   * Can be overridden to intercept calls to `postStop`. Calls `postStop` by default.
+   */
+  protected[akka] def aroundPostStop(): Unit = postStop()
+
+  /**
+   * Can be overridden to intercept calls to `preRestart`. Calls `preRestart` by default.
+   */
+  protected[akka] def aroundPreRestart(reason: Throwable, message: Option[Any]): Unit = preRestart(reason, message)
+
+  /**
+   * Can be overridden to intercept calls to `postRestart`. Calls `postRestart` by default.
+   */
+  protected[akka] def aroundPostRestart(reason: Throwable): Unit = postRestart(reason)
+
+  /**
    * User overridable definition the strategy to use for supervising
    * child actors.
    */
