@@ -21,8 +21,7 @@ private[akka] class LocalActorRef(
 
   private[akka] def underlying = actorCell
 
-  def !(msg: Any)(implicit sender: ActorRef): Unit =
-    actorCell.sendMessage(Envelope(msg, sender, system))
+  def !(msg: Any)(implicit sender: ActorRef = Actor.noSender): Unit = actorCell.sendMessage(Envelope(msg, sender, system))
 
   // InternalActorRef API
 
