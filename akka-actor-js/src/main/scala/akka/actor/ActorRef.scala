@@ -2,6 +2,9 @@ package akka.actor
 
 import scala.language.implicitConversions
 
+import scala.scalajs.js
+
+import akka.dispatch._
 import akka.dispatch.sysmsg.SystemMessage
 
 /**
@@ -34,22 +37,6 @@ abstract class ActorRef { internalRef: InternalActorRef ⇒
 
   def path: ActorPath
 
-  /**
-   * Sends a one-way asynchronous message. E.g. fire-and-forget semantics.
-   * <p/>
-   *
-   * If invoked from within an actor then the actor reference is implicitly passed on as the implicit 'sender' argument.
-   * <p/>
-   *
-   * This actor 'sender' reference is then available in the receiving actor in the 'sender' member variable,
-   * if invoked from within an Actor. If not then no sender is available.
-   * <pre>
-   *   actor ! message
-   * </pre>
-   * <p/>
-   */
-  def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit
-
   def tell(message: Any, sender: ActorRef): Unit = this.!(message)(sender)
 
   /**
@@ -57,8 +44,7 @@ abstract class ActorRef { internalRef: InternalActorRef ⇒
    *
    * Works with '!' and '?'/'ask'.
    */
-  def forward(message: Any)(implicit context: ActorContext): Unit =
-    this.!(message)(context.sender)
+  def forward(message: Any)(implicit context: ActorContext): Unit = tell(message, context.sender)
 
   /**
    * Comparison takes path and the unique id of the actor cell into account.
@@ -91,6 +77,31 @@ abstract class ActorRef { internalRef: InternalActorRef ⇒
 }
 
 /**
+ * This trait represents the Scala Actor API
+ * There are implicit conversions in ../actor/Implicits.scala
+ * from ActorRef -> ScalaActorRef and back
+ */
+trait ScalaActorRef { ref: ActorRef ⇒
+
+  /**
+   * Sends a one-way asynchronous message. E.g. fire-and-forget semantics.
+   * <p/>
+   *
+   * If invoked from within an actor then the actor reference is implicitly passed on as the implicit 'sender' argument.
+   * <p/>
+   *
+   * This actor 'sender' reference is then available in the receiving actor in the 'sender()' member variable,
+   * if invoked from within an Actor. If not then no sender is available.
+   * <pre>
+   *   actor ! message
+   * </pre>
+   * <p/>
+   */
+  def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit
+
+}
+
+/**
  * All ActorRefs have a scope which describes where they live. Since it is
  * often necessary to distinguish between local and non-local references, this
  * is the only method provided on the scope.
@@ -103,7 +114,7 @@ private[akka] trait ActorRefScope {
  * Internal trait for assembling all the functionality needed internally on
  * ActorRefs. NOTE THAT THIS IS NOT A STABLE EXTERNAL INTERFACE!
  */
-private[akka] abstract class InternalActorRef extends ActorRef {
+private[akka] abstract class InternalActorRef extends ActorRef with ScalaActorRef {
   /*
    * Actor life-cycle management, invoked only internally (in response to user requests via ActorContext).
    */
@@ -180,4 +191,55 @@ private[akka] case object Nobody extends MinimalActorRef {
 
   override def provider =
     throw new UnsupportedOperationException("Nobody does not provide")
+}
+
+private[akka] class LocalActorRef(
+  system: ActorSystem,
+  val path: ActorPath,
+  _parent: ActorRef,
+  _props: Props,
+  _dispatcher: MessageDispatcher) extends InternalActorRef {
+
+  assert(path.uid != ActorCell.undefinedUid || path.isInstanceOf[RootActorPath],
+    s"Trying to create a LocalActorRef with uid-less path $path")
+
+  val actorCell: ActorCell =
+    new ActorCell(system, _props, _dispatcher, this, _parent)
+  actorCell.init(sendSupervise = _parent ne null)
+
+  private[akka] def underlying = actorCell
+
+  def !(msg: Any)(implicit sender: ActorRef = Actor.noSender): Unit = actorCell.sendMessage(Envelope(msg, sender, system))
+
+  // InternalActorRef API
+
+  def start(): Unit = actorCell.start()
+  def resume(causedByFailure: Throwable): Unit = actorCell.resume(causedByFailure)
+  def suspend(): Unit = actorCell.suspend()
+  def restart(cause: Throwable): Unit = actorCell.restart(cause)
+  def stop(): Unit = actorCell.stop()
+  def sendSystemMessage(message: SystemMessage): Unit = actorCell.sendSystemMessage(message)
+
+  def getParent: InternalActorRef = _parent
+
+  override def provider: ActorRefProvider = actorCell.provider
+
+  /**
+   * Method for looking up a single child beneath this actor. Override in order
+   * to inject “synthetic” actor paths like “/temp”.
+   * It is racy if called from the outside.
+   */
+  def getSingleChild(name: String): InternalActorRef = {
+    val (childName, uid) = ActorCell.splitNameAndUid(name)
+    actorCell.childStatsByName(childName) match {
+      case Some(crs: ChildRestartStats) if uid == ActorCell.undefinedUid || uid == crs.uid ⇒
+        crs.child.asInstanceOf[InternalActorRef]
+      case _ ⇒ Nobody
+    }
+  }
+
+  def getChild(name: Iterator[String]): InternalActorRef =
+    Actor.noSender
+
+  def isLocal: Boolean = true
 }
