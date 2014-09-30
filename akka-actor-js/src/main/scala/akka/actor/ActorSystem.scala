@@ -245,15 +245,6 @@ class ActorSystemImpl(val name: String) extends ExtendedActorSystem
    */
   private def findExtension[T <: Extension](ext: ExtensionId[T]): T = extensions.get(ext).orNull.asInstanceOf[T]
 
-  // final def registerExtension[T <: Extension](ext: ExtensionId[T]): T = ???
-
-  def extension[T <: akka.actor.Extension](ext: akka.actor.ExtensionId[T]): T = findExtension(ext) match {
-    case null ⇒ throw new IllegalArgumentException("Trying to get non-registered extension [" + ext + "]")
-    case some ⇒ some.asInstanceOf[T]
-  }
-
-  def hasExtension(ext: akka.actor.ExtensionId[_ <: akka.actor.Extension]): Boolean = findExtension(ext) != null
-
   def registerExtension[T <: akka.actor.Extension](ext: akka.actor.ExtensionId[T]): T = {
     findExtension(ext) match {
       case null ⇒ //Doesn't already exist, commence registration
@@ -266,4 +257,11 @@ class ActorSystemImpl(val name: String) extends ExtendedActorSystem
       case existing ⇒ existing.asInstanceOf[T]
     }
   }
+
+  def extension[T <: akka.actor.Extension](ext: akka.actor.ExtensionId[T]): T = findExtension(ext) match {
+    case null ⇒ throw new IllegalArgumentException("Trying to get non-registered extension [" + ext + "]")
+    case some ⇒ some.asInstanceOf[T]
+  }
+
+  def hasExtension(ext: akka.actor.ExtensionId[_ <: akka.actor.Extension]): Boolean = findExtension(ext) != null
 }
