@@ -20,10 +20,18 @@ object AkkaJSTestSuite extends js.JSApp {
     val actorRefTestSuite = new ActorRefTestSuite(system)
     testsTotal += actorRefTestSuite.numTests
 
+    val dynAccessTestSuite = new DynamicAccessTestSuite
+    testsTotal += dynAccessTestSuite.numTests
+
+    val extTestSuite = new ExtensionTestSuite(system)
+    testsTotal += extTestSuite.numTests
+
     TestSuite.after(testsTotal)(DefaultConsolePrinter andThen System.exit)
 
     actorTestSuite.testMain()
     actorRefTestSuite.testMain()
+    dynAccessTestSuite.testMain()
+    extTestSuite.testMain()
   }
 
 }

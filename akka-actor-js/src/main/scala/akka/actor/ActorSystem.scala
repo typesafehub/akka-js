@@ -4,6 +4,7 @@ import scala.concurrent.Future
 
 import akka.dispatch._
 import akka.event._
+import scala.collection.mutable.HashMap
 
 object ActorSystem {
 
@@ -24,7 +25,7 @@ object ActorSystem {
    * Then it loads the default reference configuration using the ClassLoader.
    */
   def apply(name: String): ActorSystem = {
-    new ActorSystemImpl(new Settings(name)).start()
+    new ActorSystemImpl(name).start()
   }
 
   /**
@@ -50,8 +51,19 @@ object ActorSystem {
   }
 }
 
-abstract class ActorSystem(val settings: ActorSystem.Settings) extends ActorRefFactory {
-  val name: String = settings.name
+abstract class ActorSystem extends ActorRefFactory {
+  import ActorSystem._
+
+  /**
+   * The name of this actor system, used to distinguish multiple ones within
+   * the same JVM & class loader.
+   */
+  def name: String
+
+  /**
+   * The core settings extracted from the supplied configuration.
+   */
+  def settings: Settings
 
   def scheduler: Scheduler
   def eventStream: EventStream
@@ -63,11 +75,89 @@ abstract class ActorSystem(val settings: ActorSystem.Settings) extends ActorRefF
 
   def sendToPath(path: ActorPath, message: Any)(
     implicit sender: ActorRef = Actor.noSender): Unit
+
+  /**
+   * Registers the provided extension and creates its payload, if this extension isn't already registered
+   * This method has putIfAbsent-semantics, this method can potentially block, waiting for the initialization
+   * of the payload, if is in the process of registration from another Thread of execution
+   */
+  def registerExtension[T <: Extension](ext: ExtensionId[T]): T
+
+  /**
+   * Returns the payload that is associated with the provided extension
+   * throws an IllegalStateException if it is not registered.
+   * This method can potentially block, waiting for the initialization
+   * of the payload, if is in the process of registration from another Thread of execution
+   */
+  def extension[T <: Extension](ext: ExtensionId[T]): T
+
+  /**
+   * Returns whether the specified extension is already registered, this method can potentially block, waiting for the initialization
+   * of the payload, if is in the process of registration from another Thread of execution
+   */
+  def hasExtension(ext: ExtensionId[_ <: Extension]): Boolean
 }
 
-class ActorSystemImpl(_settings: ActorSystem.Settings)
-  extends ActorSystem(_settings)
+/**
+ * More powerful interface to the actor system’s implementation which is presented to extensions (see [[akka.actor.Extension]]).
+ *
+ * <b><i>Important Notice:</i></b>
+ *
+ * This class is not meant to be extended by user code. If you want to
+ * actually roll your own Akka, beware that you are completely on your own in
+ * that case!
+ */
+abstract class ExtendedActorSystem extends ActorSystem {
+
+  /**
+   * The ActorRefProvider is the only entity which creates all actor references within this actor system.
+   */
+  def provider: ActorRefProvider
+
+  /**
+   * The top-level supervisor of all actors created using system.actorOf(...).
+   */
+  def guardian: InternalActorRef
+
+  /**
+   * The top-level supervisor of all system-internal services like logging.
+   */
+  def systemGuardian: InternalActorRef
+
+  /**
+   * Create an actor in the "/system" namespace. This actor will be shut down
+   * during system shutdown only after all user actors have terminated.
+   */
+  def systemActorOf(props: Props, name: String): ActorRef
+
+  /**
+   * A ThreadFactory that can be used if the transport needs to create any Threads
+   */
+  // def threadFactory: ThreadFactory
+
+  /**
+   * ClassLoader wrapper which is used for reflective accesses internally. This is set
+   * to use the context class loader, if one is set, or the class loader which
+   * loaded the ActorSystem implementation. The context class loader is also
+   * set on all threads created by the ActorSystem, if one was set during
+   * creation.
+   */
+  def dynamicAccess: DynamicAccess
+
+  /**
+   * For debugging: traverse actor hierarchy and make string representation.
+   * Careful, this may OOM on large actor systems, and it is only meant for
+   * helping debugging in case something already went terminally wrong.
+   */
+  private[akka] def printTree: String
+}
+
+class ActorSystemImpl(val name: String) extends ExtendedActorSystem
   with akka.scalajs.webworkers.WebWorkersActorSystem {
+
+  import ActorSystem._
+
+  final val settings: Settings = new Settings(name)
 
   protected def systemImpl = this
 
@@ -141,4 +231,37 @@ class ActorSystemImpl(_settings: ActorSystem.Settings)
     }
     Some(result)
   }
+
+  def dynamicAccess: DynamicAccess = new JSDynamicAccess
+
+  private[akka] def printTree: String = ???
+
+  private val extensions = new HashMap[ExtensionId[_], AnyRef]
+
+  def systemActorOf(props: Props, name: String): ActorRef = ???
+
+  /**
+   * Returns any extension registered to the specified Extension or returns null if not registered
+   */
+  private def findExtension[T <: Extension](ext: ExtensionId[T]): T = extensions.get(ext).orNull.asInstanceOf[T]
+
+  def registerExtension[T <: akka.actor.Extension](ext: akka.actor.ExtensionId[T]): T = {
+    findExtension(ext) match {
+      case null ⇒ //Doesn't already exist, commence registration
+        ext.createExtension(this) match { // Create and initialize the extension
+          case null ⇒ throw new IllegalStateException("Extension instance created as 'null' for extension [" + ext + "]")
+          case instance ⇒
+            extensions += (ext -> instance)
+            instance //Profit!
+        }
+      case existing ⇒ existing.asInstanceOf[T]
+    }
+  }
+
+  def extension[T <: akka.actor.Extension](ext: akka.actor.ExtensionId[T]): T = findExtension(ext) match {
+    case null ⇒ throw new IllegalArgumentException("Trying to get non-registered extension [" + ext + "]")
+    case some ⇒ some.asInstanceOf[T]
+  }
+
+  def hasExtension(ext: akka.actor.ExtensionId[_ <: akka.actor.Extension]): Boolean = findExtension(ext) != null
 }

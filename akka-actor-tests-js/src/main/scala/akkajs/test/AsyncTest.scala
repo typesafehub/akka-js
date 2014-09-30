@@ -36,13 +36,22 @@ object TestSuite {
 
 }
 
-case class TestTask(cond: () => Boolean, msg: () => String)
+case class TestTask(desc: TestDesc, cond: () => Boolean, msg: () => String)
 case class CompletedTest(task: TestTask, result: Try[Boolean])
+case class TestDesc(value: String)
 
 trait AsyncAssert {
 
+  def test[T](desc: String)(body: TestDesc => T): T = {
+    body(TestDesc(desc))
+  }
+
   def assert(cond: => Boolean, msg: => String): Unit = {
-    TestSuite.checkLater(TestTask(() => cond, () => msg))
+    TestSuite.checkLater(TestTask(TestDesc(""), () => cond, () => msg))
+  }
+
+  def assert1(cond: => Boolean, msg: => String)(implicit desc: TestDesc): Unit = {
+    TestSuite.checkLater(TestTask(desc, () => cond, () => msg))
   }
 
   def intercept[T <: Throwable: ClassTag](body: => Unit): Unit = {
@@ -89,10 +98,16 @@ object DefaultConsolePrinter extends (List[CompletedTest] => Int) {
 
   def apply(tests: List[CompletedTest]): Int = {
     var exitCode = 0
+    val longestDesc = tests.foldLeft(0)((longest, test) => math.max(test.task.desc.value.length, longest))
+
     tests.zipWithIndex.foreach { case (test, index) =>
       if (test.result.isFailure)
         exitCode = 1
-      println(s"Test $index: ${test.result}")
+
+      val desc    = s"Test '${test.task.desc.value}'"
+      val padding = (1 to (longestDesc + 7 - desc.length)).flatMap(x => " ").mkString("")
+      val result  = if (test.result.isSuccess) "Success" else test.result.toString
+      println(s"$desc$padding [$index]: $result")
     }
     exitCode
   }
