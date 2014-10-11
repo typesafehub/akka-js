@@ -25,6 +25,17 @@ object AkkaJSBuild extends Build {
     base = file("akka-actor-tests-js")
   ) dependsOn(akkaActorJS)
 
+  // JVM project
+  lazy val akkaWebsocketCommon = Project(
+    id = "akka-websocket-common",
+    base = file("akka-websocket-common")
+  )
+
+  lazy val akkaWebsocketBridge = Project(
+    id = "akka-websocket-bridge",
+    base = file("akka-websocket-bridge")
+  ) dependsOn(akkaWebsocketCommon)
+
   override lazy val settings =
     super.settings ++
     buildSettings
