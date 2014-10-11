@@ -54,7 +54,7 @@ trait AsyncAssert {
     TestSuite.checkLater(TestTask(desc, () => cond, () => msg))
   }
 
-  def intercept[T <: Throwable: ClassTag](body: => Unit): Unit = {
+  def intercept[T <: Throwable: ClassTag](body: => Unit)(implicit desc: TestDesc): Unit = {
     val outcome: Try[Boolean] = try {
       body
       Failure(new IllegalStateException("no exception thrown"))
@@ -68,10 +68,10 @@ trait AsyncAssert {
         else
           Failure(t)
     }
-    assert(outcome.isSuccess, s"unexpected ${outcome.failed.get.toString}")
+    assert1(outcome.isSuccess, s"unexpected ${outcome.failed.get.toString}")
   }
 
-  def checkIntercept[E <: Throwable: ClassTag, T](outcome: Try[T]): Unit = outcome match {
+  def checkIntercept[E <: Throwable: ClassTag, T](outcome: Try[T])(implicit desc: TestDesc): Unit = outcome match {
     case Success(_) =>
       assert(false, s"${classTag[E].runtimeClass.toString} not thrown}")
     case Failure(t) =>
@@ -84,7 +84,7 @@ trait AsyncAssert {
         else
           Failure(t)
       }
-      assert(toReport.isSuccess, s"unexpected ${toReport.failed.get.toString}")
+      assert1(toReport.isSuccess, s"unexpected ${toReport.failed.get.toString}")
   }
 
 }

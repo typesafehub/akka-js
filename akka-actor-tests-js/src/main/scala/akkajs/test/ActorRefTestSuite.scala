@@ -36,16 +36,20 @@ class ActorRefTestSuite(system: ActorSystem) extends TestSuite with AsyncAssert 
   def numTests: Int = 2
 
   def testMain(): Unit = {
-    intercept[akka.actor.ActorInitializationException] {
-      new Actor { def receive = { case _ ⇒ } }
+    test("Creating actor without `actorOf` throws `ActorInitializationException`") { implicit desc: TestDesc =>
+      intercept[akka.actor.ActorInitializationException] {
+        new Actor { def receive = { case _ ⇒ } }
+      }
     }
 
-    wrapAsync[ActorRef]({ result ⇒
-      system.actorOf(Props(new Actor {
-        val nested = promiseIntercept(new Actor { def receive = { case _ ⇒ } })(result)
-        def receive = { case _ ⇒ }
-      }))
-    }) { outcome => checkIntercept[ActorInitializationException, ActorRef](outcome) }
+    test("Creating nested actor without `actorOf` throws `ActorInitializationException`") { implicit desc: TestDesc =>
+      wrapAsync[ActorRef]({ result ⇒
+        system.actorOf(Props(new Actor {
+          val nested = promiseIntercept(new Actor { def receive = { case _ ⇒ } })(result)
+          def receive = { case _ ⇒ }
+        }))
+      }) { outcome => checkIntercept[ActorInitializationException, ActorRef](outcome) }
+    }
   }
 
 }
