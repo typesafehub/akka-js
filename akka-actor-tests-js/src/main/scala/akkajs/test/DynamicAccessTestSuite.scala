@@ -30,19 +30,29 @@ class DynamicAccessTestSuite extends TestSuite with AsyncAssert {
   def testMain(): Unit = {
     val dynAccess: DynamicAccess = new JSDynamicAccess
     val objTry = dynAccess.createInstanceFor[Person](classOf[Person], Seq(classOf[String] -> "Hans", classOf[java.lang.Integer] -> new java.lang.Integer(60)))
-    assert(objTry.toString == "Success(Person(Hans,60))", s"something's very wrong: $objTry")
+    test("DynamicAccess#createInstanceFor 1") { implicit desc: TestDesc =>
+      assert1(objTry.toString == "Success(Person(Hans,60))", s"something's very wrong: $objTry")
+    }
 
     val objTry2 = dynAccess.createInstanceFor[Person]("Person", Seq(classOf[String] -> "Hans", classOf[java.lang.Integer] -> new java.lang.Integer(60)))
-    assert(objTry2.toString == "Success(Person(Hans,60))", s"something's very wrong: $objTry2")
+    test("DynamicAccess#createInstanceFor 2") { implicit desc: TestDesc =>
+      assert1(objTry2.toString == "Success(Person(Hans,60))", s"something's very wrong: $objTry2")
+    }
 
     val objTry3 = dynAccess.getObjectFor[EntitySingleton]("PersonSingleton")
-    assert(objTry3.isSuccess, s"!isSuccess: $objTry3")
+    test("DynamicAccess#getObjectFor (extends @JSExport class) isSuccess") { implicit desc: TestDesc =>
+      assert1(objTry3.isSuccess, s"!isSuccess: $objTry3")
+    }
 
     val obj3 = objTry3.get
-    assert(obj3 == PersonSingleton, s"expected: $PersonSingleton, got: $obj3")
+    test("DynamicAccess#getObjectFor value") { implicit desc: TestDesc =>
+      assert1(obj3 == PersonSingleton, s"expected: $PersonSingleton, got: $obj3")
+    }
 
     val objTry4 = dynAccess.getObjectFor[EntitySingleton2]("PersonSingleton2")
-    assert(objTry4.isSuccess, s"!isSuccess: $objTry4")
+    test("DynamicAccess#getObjectFor (extends trait) isSuccess") { implicit desc: TestDesc =>
+      assert1(objTry4.isSuccess, s"!isSuccess: $objTry4")
+    }
   }
 
 }
