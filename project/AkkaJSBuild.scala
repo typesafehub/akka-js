@@ -7,6 +7,9 @@ package akkajs
 import sbt._
 import Keys._
 
+import scala.scalajs.sbtplugin.ScalaJSPlugin._
+import ScalaJSKeys._
+
 object AkkaJSBuild extends Build {
 
   lazy val buildSettings = Seq(
@@ -35,6 +38,25 @@ object AkkaJSBuild extends Build {
     id = "akka-websocket-bridge",
     base = file("akka-websocket-bridge")
   ) dependsOn(akkaWebsocketCommon)
+
+  lazy val playApp = Project(
+    id = "play-app",
+    base = file("examples/play-app")
+  ) dependsOn(akkaWebsocketBridge)
+
+  lazy val playAppScalaJS = project.in(file("examples/play-app/scalajs"))
+    .dependsOn(akkaActorJS)
+    .settings(
+        unmanagedSourceDirectories in Compile +=
+          (baseDirectory in playApp).value / "cscommon"
+    )
+    .settings(
+        Seq(fastOptJS, fullOptJS) map {
+          packageJSKey =>
+            crossTarget in (Compile, packageJSKey) :=
+              (baseDirectory in playApp).value / "public/javascripts"
+        }: _*
+    )
 
   override lazy val settings =
     super.settings ++

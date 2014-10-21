@@ -50,8 +50,7 @@ class ClientProxy(wsUrl: String, connectedHandler: ActorRef) extends AbstractPro
   }
 
   override def receive = super.receive.orElse[Any, Unit] {
-    case ConnectionError ⇒
-      throw new akka.AkkaException("WebSocket connection error")
+    case ConnectionError ⇒ throw new akka.AkkaException("WebSocket connection error")
   }
 
   override def receiveFromPeer = super.receiveFromPeer.orElse[Any, Unit] {

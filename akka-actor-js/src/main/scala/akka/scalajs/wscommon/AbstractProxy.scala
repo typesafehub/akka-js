@@ -93,8 +93,7 @@ abstract class AbstractProxy extends Actor {
 
   protected def sendPickleToPeer(pickle: PickleType): Unit
 
-  private[wscommon] def pickleActorRef[P](ref: ActorRef)(
-    implicit builder: PBuilder[P]): P = {
+  private[wscommon] def pickleActorRef[P](ref: ActorRef)(implicit builder: PBuilder[P]): P = {
     val (side, id) = if (context.children.exists(_ == ref)) {
       /* This is a proxy actor for an actor on the client.
        * We need to unbox it to recover the ID the client gave to us for it.
@@ -151,16 +150,14 @@ private class ForeignActorProxy extends Actor {
 private class ActorRefAwarePicklerRegistry(proxy: AbstractProxy) extends PicklerRegistry {
   val base = PicklerRegistry
 
-  override def pickle[P](value: Any)(implicit builder: PBuilder[P],
-                                     registry: PicklerRegistry): P = {
+  override def pickle[P](value: Any)(implicit builder: PBuilder[P], registry: PicklerRegistry): P = {
     value match {
       case ref: ActorRef ⇒ builder.makeObject(("ref", proxy.pickleActorRef(ref)))
       case _             ⇒ base.pickle(value)
     }
   }
 
-  override def unpickle[P](pickle: P)(implicit reader: PReader[P],
-                                      registry: PicklerRegistry): Any = {
+  override def unpickle[P](pickle: P)(implicit reader: PReader[P], registry: PicklerRegistry): Any = {
     if (reader.isNull(pickle)) {
       null
     } else {
