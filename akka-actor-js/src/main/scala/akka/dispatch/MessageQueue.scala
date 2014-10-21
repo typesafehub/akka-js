@@ -3,7 +3,7 @@ package akka.dispatch
 import scala.annotation.tailrec
 
 import akka.actor._
-import akka.util.JSQueue
+import akka.scalajs.util.JSQueue
 
 /**
  * A MessageQueue is one of the core components in forming a Mailbox.

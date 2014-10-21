@@ -6,7 +6,7 @@ import scala.util.control.NonFatal
 
 import akka.actor._
 import akka.dispatch.sysmsg.SystemMessage
-import akka.util.JSQueue
+import akka.scalajs.util.JSQueue
 
 private[akka] object Mailbox {
 

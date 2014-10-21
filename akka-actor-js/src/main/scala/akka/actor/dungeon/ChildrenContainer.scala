@@ -7,7 +7,7 @@ package dungeon
 
 import scala.collection.immutable
 
-import akka.util.JSMap
+import akka.scalajs.util.JSMap
 import akka.util.Collections.EmptyImmutableSeq
 
 /**
