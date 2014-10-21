@@ -11,6 +11,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 import akka.util._
+import akka.scalajs.util._
 
 /**
  * This exception is thrown by Scheduler.schedule* when scheduling is not

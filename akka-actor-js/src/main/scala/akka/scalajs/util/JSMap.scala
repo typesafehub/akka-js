@@ -1,4 +1,4 @@
-package akka.util
+package akka.scalajs.util
 
 import scala.collection.mutable.{ Map, MapLike }
 

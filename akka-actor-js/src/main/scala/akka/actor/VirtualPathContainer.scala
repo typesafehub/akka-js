@@ -1,6 +1,6 @@
 package akka.actor
 
-import akka.util.JSMap
+import akka.scalajs.util.JSMap
 
 /**
  * Internal implementation detail used for paths like “/temp”

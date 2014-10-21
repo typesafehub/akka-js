@@ -5,7 +5,7 @@ import js.Dynamic.global
 import akka.scalajs.jsapi._
 
 import akka.actor._
-import akka.util.JSMap
+import akka.scalajs.util.JSMap
 
 /**
  * Router of the current web worker.

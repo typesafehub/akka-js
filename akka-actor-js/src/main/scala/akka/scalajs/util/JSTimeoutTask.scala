@@ -1,4 +1,4 @@
-package akka.util
+package akka.scalajs.util
 
 import scala.concurrent.duration.FiniteDuration
 
