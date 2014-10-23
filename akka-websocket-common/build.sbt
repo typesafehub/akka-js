@@ -1,4 +1,4 @@
-unmanagedSourceDirectories in Compile += baseDirectory.value / ".." / "akka-actor-js" / "src" / "main" / "scala" / "akka" / "scalajs" / "wscommon"
+unmanagedSourceDirectories in Compile += baseDirectory.value / ".." / "akka-websocket-scalajs" / "src" / "main" / "scala" / "akka" / "scalajs" / "wscommon"
 
 resolvers += Resolver.url("scala-js-releases",
     url("http://dl.bintray.com/content/scala-js/scala-js-releases"))(

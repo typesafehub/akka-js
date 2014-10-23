@@ -28,6 +28,11 @@ object AkkaJSBuild extends Build {
     base = file("akka-actor-tests-js")
   ) dependsOn(akkaActorJS)
 
+  lazy val akkaWebsocketJS = Project(
+    id = "akka-websocket-scalajs",
+    base = file("akka-websocket-scalajs")
+  ) dependsOn(akkaActorJS)
+
   // JVM project
   lazy val akkaWebsocketCommon = Project(
     id = "akka-websocket-common",
@@ -42,10 +47,10 @@ object AkkaJSBuild extends Build {
   lazy val playApp = Project(
     id = "play-app",
     base = file("examples/play-app")
-  ) dependsOn(akkaWebsocketBridge)
+  ) dependsOn(akkaWebsocketBridge, akkaWebsocketCommon)
 
   lazy val playAppScalaJS = project.in(file("examples/play-app/scalajs"))
-    .dependsOn(akkaActorJS)
+    .dependsOn(akkaActorJS, akkaWebsocketJS)
     .settings(
         unmanagedSourceDirectories in Compile +=
           (baseDirectory in playApp).value / "cscommon"

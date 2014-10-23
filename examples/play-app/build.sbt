@@ -13,6 +13,6 @@ libraryDependencies ++= Seq(
 
 unmanagedSourceDirectories in Compile += baseDirectory.value / ".." / ".." / "akka-websocket-bridge" / "src" / "main" / "scala" / "akkajs" / "wsserver"
 
-unmanagedSourceDirectories in Compile += baseDirectory.value / ".." / ".." / "akka-actor-js" / "src" / "main" / "scala" / "akka" / "scalajs" / "wscommon"
+unmanagedSourceDirectories in Compile += baseDirectory.value / ".." / ".." / "akka-websocket-scalajs" / "src" / "main" / "scala" / "akka" / "scalajs" / "wscommon"
 
 unmanagedSourceDirectories in Compile += baseDirectory.value / "cscommon" / "models"
