@@ -1,5 +1,7 @@
 package akka.scalajs.webworkers
 
+import org.scalajs.dom
+
 import scala.scalajs.js
 import js.Dynamic.global
 import akka.scalajs.jsapi._
@@ -147,9 +149,7 @@ object WebWorkerRouter {
    *  This works even when the router is not initialized.
    */
   def postLocalMessageTo(system: String, message: js.Any): Unit = {
-    Timers.setImmediate {
-      deliverMessage(system, message)
-    }
+    dom.setTimeout(() ⇒ deliverMessage(system, message), 0)
   }
 
   /** Posts a message to an actor system address. */

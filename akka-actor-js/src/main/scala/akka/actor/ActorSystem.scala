@@ -1,5 +1,7 @@
 package akka.actor
 
+import akka.akkajs.EventLoopScheduler
+
 import scala.concurrent.Future
 
 import akka.dispatch._
