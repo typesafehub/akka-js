@@ -109,21 +109,3 @@ trait Scheduler {
   def maxFrequency: Double
 
 }
-
-class EventLoopScheduler extends Scheduler {
-
-  def schedule(
-    initialDelay: FiniteDuration,
-    interval: FiniteDuration)(f: ⇒ Unit)(
-      implicit executor: ExecutionContext): Cancellable = {
-    JSTimeoutThenIntervalTask(initialDelay, interval)(f)
-  }
-
-  def scheduleOnce(delay: FiniteDuration)(f: ⇒ Unit)(
-    implicit executor: ExecutionContext): Cancellable = {
-    JSTimeoutTask(delay)(f)
-  }
-
-  def maxFrequency: Double = 1.0 / 0.0004 // as per HTML spec
-
-}

@@ -1,5 +1,7 @@
 package akka.dispatch
 
+import org.scalajs.dom
+
 import scala.annotation.tailrec
 
 import scala.concurrent.duration.Duration
@@ -7,7 +9,6 @@ import scala.concurrent.ExecutionContext
 
 import akka.actor._
 import akka.dispatch.sysmsg._
-import akka.scalajs.jsapi.Timers
 
 class MessageDispatcher(
   val mailboxes: Mailboxes) extends ExecutionContext {
@@ -137,9 +138,7 @@ class MessageDispatcher(
   // ExecutionContext API
 
   override def execute(runnable: Runnable): Unit = {
-    Timers.setImmediate {
-      runnable.run()
-    }
+    dom.setTimeout(() ⇒ runnable.run(), 0)
   }
 
   override def reportFailure(t: Throwable): Unit = {
