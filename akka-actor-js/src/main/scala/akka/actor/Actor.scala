@@ -1,8 +1,128 @@
+/**
+ * Copyright (C) 2009-2014 Typesafe Inc. <http://www.typesafe.com>
+ */
+
 package akka.actor
 
 import akka.AkkaException
 import scala.annotation.unchecked.uncheckedStable
 import scala.annotation.tailrec
+import scala.beans.BeanProperty
+import scala.util.control.NoStackTrace
+// PORT import akka.event.LoggingAdapter
+
+/**
+ * INTERNAL API
+ *
+ * Marker trait to show which Messages are automatically handled by Akka
+ */
+private[akka] trait AutoReceivedMessage extends Serializable
+
+/**
+ * Marker trait to indicate that a message might be potentially harmful,
+ * this is used to block messages coming in over remoting.
+ */
+trait PossiblyHarmful
+
+/**
+ * Marker trait to signal that this class should not be verified for serializability.
+ */
+trait NoSerializationVerificationNeeded
+
+abstract class PoisonPill extends AutoReceivedMessage with PossiblyHarmful
+
+/**
+ * A message all Actors will understand, that when processed will terminate the Actor permanently.
+ */
+@SerialVersionUID(1L)
+case object PoisonPill extends PoisonPill {
+  /**
+   * Java API: get the singleton instance
+   */
+  def getInstance = this
+}
+
+abstract class Kill extends AutoReceivedMessage with PossiblyHarmful
+/**
+ * A message all Actors will understand, that when processed will make the Actor throw an ActorKilledException,
+ * which will trigger supervision.
+ */
+@SerialVersionUID(1L)
+case object Kill extends Kill {
+  /**
+   * Java API: get the singleton instance
+   */
+  def getInstance = this
+}
+
+/**
+ * A message all Actors will understand, that when processed will reply with
+ * [[akka.actor.ActorIdentity]] containing the `ActorRef`. The `messageId`
+ * is returned in the `ActorIdentity` message as `correlationId`.
+ */
+@SerialVersionUID(1L)
+case class Identify(messageId: Any) extends AutoReceivedMessage
+
+/**
+ * Reply to [[akka.actor.Identify]]. Contains
+ * `Some(ref)` with the `ActorRef` of the actor replying to the request or
+ * `None` if no actor matched the request.
+ * The `correlationId` is taken from the `messageId` in
+ * the `Identify` message.
+ */
+@SerialVersionUID(1L)
+case class ActorIdentity(correlationId: Any, ref: Option[ActorRef]) {
+  /**
+   * Java API: `ActorRef` of the actor replying to the request or
+   * null if no actor matched the request.
+   */
+  def getRef: ActorRef = ref.orNull
+}
+
+/**
+ * When Death Watch is used, the watcher will receive a Terminated(watched)
+ * message when watched is terminated.
+ * Terminated message can't be forwarded to another actor, since that actor
+ * might not be watching the subject. Instead, if you need to forward Terminated
+ * to another actor you should send the information in your own message.
+ *
+ * @param actor the watched actor that terminated
+ * @param existenceConfirmed is false when the Terminated message was not sent
+ *   directly from the watched actor, but derived from another source, such as
+ *   when watching a non-local ActorRef, which might not have been resolved
+ * @param addressTerminated the Terminated message was derived from
+ *   that the remote node hosting the watched actor was detected as unreachable
+ */
+@SerialVersionUID(1L)
+case class Terminated private[akka] (@BeanProperty actor: ActorRef)(
+  @BeanProperty val existenceConfirmed: Boolean,
+  @BeanProperty val addressTerminated: Boolean) extends AutoReceivedMessage with PossiblyHarmful
+
+/**
+ * INTERNAL API
+ *
+ * Used for remote death watch. Failure detector publish this to the
+ * [[akka.event.AddressTerminatedTopic]] when a remote node is detected to be unreachable and/or decided to
+ * be removed.
+ * The watcher ([[akka.actor.dungeon.DeathWatch]]) subscribes to the `AddressTerminatedTopic`
+ * and translates this event to [[akka.actor.Terminated]], which is sent itself.
+ */
+@SerialVersionUID(1L)
+private[akka] case class AddressTerminated(address: Address) extends AutoReceivedMessage with PossiblyHarmful
+
+abstract class ReceiveTimeout extends PossiblyHarmful
+
+/**
+ * When using ActorContext.setReceiveTimeout, the singleton instance of ReceiveTimeout will be sent
+ * to the Actor when there hasn't been any message for that long.
+ */
+@SerialVersionUID(1L)
+case object ReceiveTimeout extends ReceiveTimeout {
+  /**
+   * Java API: get the singleton instance
+   */
+  def getInstance = this
+}
 
 /**
  * IllegalActorStateException is thrown when a core invariant in the Actor
@@ -16,8 +136,8 @@ final case class IllegalActorStateException private[akka] (
  * ActorKilledException is thrown when an Actor receives the
  * [[org.scalajs.actors.Kill]] message
  */
-final case class ActorKilledException private[akka] (
-  message: String) extends AkkaException(message)
+@SerialVersionUID(1L)
+case class ActorKilledException private[akka] (message: String) extends AkkaException(message)
 
 /**
  * An InvalidActorNameException is thrown when you try to convert something,

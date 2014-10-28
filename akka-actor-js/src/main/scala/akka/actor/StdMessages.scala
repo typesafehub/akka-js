@@ -1,5 +1,6 @@
 package akka.actor
 
+/*
 /**
  * INTERNAL API
  *
@@ -24,12 +25,16 @@ case object PoisonPill extends AutoReceivedMessage with PossiblyHarmful
  * Actor throw an ActorKilledException, which will trigger supervision.
  */
 case object Kill extends AutoReceivedMessage with PossiblyHarmful
+*/
 
+/*
 /**
  * Internal Akka use only, used in implementation of system.stop(child).
  */
 private[akka] case class StopChild(child: ActorRef)
+*/
 
+/*
 /**
  * A message all Actors will understand, that when processed will reply with
  * [[org.scalajs.actors.ActorIdentity]] containing the `ActorRef`. The
@@ -70,13 +75,4 @@ final case class Terminated private[akka] (actor: ActorRef)(
  * for that long.
  */
 case object ReceiveTimeout extends PossiblyHarmful
-
-/**
- * When a message is sent to an Actor that is terminated before receiving the
- * message, it will be sent as a DeadLetter to the ActorSystem's EventStream
- */
-final case class DeadLetter(message: Any, sender: ActorRef,
-                            recipient: ActorRef) {
-  require(sender ne null, "DeadLetter sender may not be null")
-  require(recipient ne null, "DeadLetter recipient may not be null")
-}
+*/

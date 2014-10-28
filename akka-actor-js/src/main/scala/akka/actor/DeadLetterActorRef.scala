@@ -4,6 +4,7 @@ import akka.event.EventStream
 import akka.dispatch.Mailbox
 import akka.dispatch.sysmsg._
 
+/*
 /**
  * This special dead letter reference has a name: it is that which is returned
  * by a local look-up which is unsuccessful.
@@ -80,3 +81,4 @@ private[akka] class DeadLetterActorRef(_provider: ActorRefProvider,
     case _ ⇒ super.specialHandle(msg, sender)
   }
 }
+*/
