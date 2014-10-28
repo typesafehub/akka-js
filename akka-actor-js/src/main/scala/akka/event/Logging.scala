@@ -3,6 +3,7 @@ package akka.event
 import language.existentials
 import akka.actor._
 import scala.annotation.implicitNotFound
+import scala.util.control.NoStackTrace
 
 /**
  * This trait defines the interface to be provided by a “log source formatting
@@ -138,6 +139,12 @@ object Logging {
    */
   sealed trait LogEvent {
     /**
+     * The thread that created this log event
+     */
+    @transient
+    val thread: Thread = Thread.currentThread
+
+    /**
      * When this LogEvent was created according to System.currentTimeMillis
      */
     val timestamp: Long = System.currentTimeMillis
@@ -200,6 +207,77 @@ object Logging {
    */
   case class Debug(logSource: String, logClass: Class[_], message: Any = "") extends LogEvent {
     override def level = DebugLevel
+  }
+
+  trait StdOutLogger {
+    import java.text.SimpleDateFormat
+    import java.util.Date
+
+    private val date = new Date()
+    private val dateFormat = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss.SSS")
+    private val errorFormat = "[ERROR] [%s] [%s] [%s] %s%s"
+    private val errorFormatWithoutCause = "[ERROR] [%s] [%s] [%s] %s"
+    private val warningFormat = "[WARN] [%s] [%s] [%s] %s"
+    private val infoFormat = "[INFO] [%s] [%s] [%s] %s"
+    private val debugFormat = "[DEBUG] [%s] [%s] [%s] %s"
+
+    def timestamp(event: LogEvent): String = synchronized {
+      date.setTime(event.timestamp)
+      dateFormat.format(date)
+    } // SDF isn't threadsafe
+
+    def print(event: Any): Unit = event match {
+      case e: Error   ⇒ error(e)
+      case e: Warning ⇒ warning(e)
+      case e: Info    ⇒ info(e)
+      case e: Debug   ⇒ debug(e)
+      case e          ⇒ warning(Warning(simpleName(this), this.getClass, "received unexpected event of class " + e.getClass + ": " + e))
+    }
+
+    def error(event: Error): Unit = {
+      val f = if (event.cause == Error.NoCause) errorFormatWithoutCause else errorFormat
+      println(f.format(
+        timestamp(event),
+        event.thread.getName,
+        event.logSource,
+        event.message,
+        stackTraceFor(event.cause)))
+    }
+
+    def warning(event: Warning): Unit =
+      println(warningFormat.format(
+        timestamp(event),
+        event.thread.getName,
+        event.logSource,
+        event.message))
+
+    def info(event: Info): Unit =
+      println(infoFormat.format(
+        timestamp(event),
+        event.thread.getName,
+        event.logSource,
+        event.message))
+
+    def debug(event: Debug): Unit =
+      println(debugFormat.format(
+        timestamp(event),
+        event.thread.getName,
+        event.logSource,
+        event.message))
+  }
+
+  /**
+   * Returns the StackTrace for the given Throwable as a String
+   */
+  def stackTraceFor(e: Throwable): String = e match {
+    case null | Error.NoCause ⇒ ""
+    case _: NoStackTrace      ⇒ " (" + e.getClass.getName + ")"
+    case other ⇒
+      val sw = new java.io.StringWriter
+      val pw = new java.io.PrintWriter(sw)
+      pw.append('\n')
+      other.printStackTrace(pw)
+      sw.toString
   }
 
   type MDC = Map[String, Any]
@@ -447,4 +525,90 @@ trait LoggingAdapter {
     }
     sb.append(rest).toString
   }
+}
+
+/**
+ * LoggingAdapter extension which adds MDC support.
+ * Only recommended to be used within Actors as it isn't thread safe.
+ */
+trait DiagnosticLoggingAdapter extends LoggingAdapter {
+
+  import Logging._
+  import scala.collection.JavaConverters._
+  import java.{ util ⇒ ju }
+
+  private var _mdc = emptyMDC
+
+  /**
+   * Scala API:
+   * Mapped Diagnostic Context for application defined values
+   * which can be used in PatternLayout when [[akka.event.slf4j.Slf4jLogger]] is configured.
+   * Visit <a href="http://logback.qos.ch/manual/mdc.html">Logback Docs: MDC</a> for more information.
+   *
+   * @return A Map containing the MDC values added by the application, or empty Map if no value was added.
+   */
+  override def mdc: MDC = _mdc
+
+  /**
+   * Scala API:
+   * Sets the values to be added to the MDC (Mapped Diagnostic Context) before the log is appended.
+   * These values can be used in PatternLayout when [[akka.event.slf4j.Slf4jLogger]] is configured.
+   * Visit <a href="http://logback.qos.ch/manual/mdc.html">Logback Docs: MDC</a> for more information.
+   */
+  def mdc(mdc: MDC): Unit = _mdc = if (mdc != null) mdc else emptyMDC
+
+  /**
+   * Java API:
+   * Mapped Diagnostic Context for application defined values
+   * which can be used in PatternLayout when [[akka.event.slf4j.Slf4jLogger]] is configured.
+   * Visit <a href="http://logback.qos.ch/manual/mdc.html">Logback Docs: MDC</a> for more information.
+   * Note tha it returns a <b>COPY</b> of the actual MDC values.
+   * You cannot modify any value by changing the returned Map.
+   * Code like the following won't have any effect unless you set back the modified Map.
+   * <code><pre>
+   *   Map mdc = log.getMDC();
+   *   mdc.put("key", value);
+   *   // NEEDED
+   *   log.setMDC(mdc);
+   * </pre></code>
+   *
+   * @return A copy of the actual MDC values
+   */
+  def getMDC: ju.Map[String, Any] = mdc.asJava
+
+  /**
+   * Java API:
+   * Sets the values to be added to the MDC (Mapped Diagnostic Context) before the log is appended.
+   * These values can be used in PatternLayout when [[akka.event.slf4j.Slf4jLogger]] is configured.
+   * Visit <a href="http://logback.qos.ch/manual/mdc.html">Logback Docs: MDC</a> for more information.
+   */
+  def setMDC(jMdc: java.util.Map[String, Any]): Unit = mdc(if (jMdc != null) jMdc.asScala.toMap else emptyMDC)
+
+  /**
+   * Clear all entries in the MDC
+   */
+  def clearMDC(): Unit = mdc(emptyMDC)
+}
+
+/**
+ * NoLogging is a LoggingAdapter that does absolutely nothing – no logging at all.
+ */
+object NoLogging extends LoggingAdapter {
+
+  /**
+   * Java API to return the reference to NoLogging
+   * @return The NoLogging instance
+   */
+  def getInstance = this
+
+  final override def isErrorEnabled = false
+  final override def isWarningEnabled = false
+  final override def isInfoEnabled = false
+  final override def isDebugEnabled = false
+
+  final protected override def notifyError(message: String): Unit = ()
+  final protected override def notifyError(cause: Throwable, message: String): Unit = ()
+  final protected override def notifyWarning(message: String): Unit = ()
+  final protected override def notifyInfo(message: String): Unit = ()
+  final protected override def notifyDebug(message: String): Unit = ()
 }
