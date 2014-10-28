@@ -253,16 +253,16 @@ object Status {
   sealed trait Status extends Serializable
 
   /**
-   * This class/message type is preferably used to indicate success of some
-   * operation performed.
+   * This class/message type is preferably used to indicate success of some operation performed.
    */
-  case class Success(status: AnyRef) extends Status
+  @SerialVersionUID(1L)
+  case class Success(status: Any) extends Status
 
   /**
-   * This class/message type is preferably used to indicate failure of some
-   * operation performed.
+   * This class/message type is preferably used to indicate failure of some operation performed.
    * As an example, it is used to signal failure with AskSupport is used (ask/?).
    */
+  @SerialVersionUID(1L)
   case class Failure(cause: Throwable) extends Status
 }
 
@@ -296,7 +296,10 @@ object Actor {
   /**
    * Type alias representing a Receive-expression for Akka Actors.
    */
+  //#receive
   type Receive = PartialFunction[Any, Unit]
+
+  //#receive
 
   /**
    * emptyBehavior is a Receive-expression that matches no messages at all, ever.
@@ -314,6 +317,58 @@ object Actor {
   final val noSender: ActorRef = null
 }
 
+/**
+ * Actor base trait that should be extended by or mixed to create an Actor with the semantics of the 'Actor Model':
+ * <a href="http://en.wikipedia.org/wiki/Actor_model">http://en.wikipedia.org/wiki/Actor_model</a>
+ *
+ * An actor has a well-defined (non-cyclic) life-cycle.
+ *  - ''RUNNING'' (created and started actor) - can receive messages
+ *  - ''SHUTDOWN'' (when 'stop' is invoked) - can't do anything
+ *
+ * The Actor's own [[akka.actor.ActorRef]] is available as `self`, the current
+ * message’s sender as `sender()` and the [[akka.actor.ActorContext]] as
+ * `context`. The only abstract method is `receive` which shall return the
+ * initial behavior of the actor as a partial function (behavior can be changed
+ * using `context.become` and `context.unbecome`).
+ *
+ * This is the Scala API (hence the Scala code below), for the Java API see [[akka.actor.UntypedActor]].
+ *
+ * {{{
+ * class ExampleActor extends Actor {
+ *
+ *   override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 10, withinTimeRange = 1 minute) {
+ *     case _: ArithmeticException      => Resume
+ *     case _: NullPointerException     => Restart
+ *     case _: IllegalArgumentException => Stop
+ *     case _: Exception                => Escalate
+ *   }
+ *
+ *   def receive = {
+ *                                      // directly calculated reply
+ *     case Request(r)               => sender() ! calculate(r)
+ *
+ *                                      // just to demonstrate how to stop yourself
+ *     case Shutdown                 => context.stop(self)
+ *
+ *                                      // error kernel with child replying directly to 'sender()'
+ *     case Dangerous(r)             => context.actorOf(Props[ReplyToOriginWorker]).tell(PerformWork(r), sender())
+ *
+ *                                      // error kernel with reply going through us
+ *     case OtherJob(r)              => context.actorOf(Props[ReplyToMeWorker]) ! JobRequest(r, sender())
+ *     case JobReply(result, orig_s) => orig_s ! result
+ *   }
+ * }
+ * }}}
+ *
+ * The last line demonstrates the essence of the error kernel design: spawn
+ * one-off actors which terminate after doing their job, pass on `sender()` to
+ * allow direct reply if that is what makes sense, or round-trip the sender
+ * as shown with the fictitious JobRequest/JobReply message pair.
+ *
+ * If you don’t like writing `context` you can always `import context._` to get
+ * direct access to `actorOf`, `stop` etc. This is not default in order to keep
+ * the name-space clean.
+ */
 trait Actor {
 
   import Actor._
@@ -346,6 +401,10 @@ trait Actor {
    *
    * WARNING: Only valid within the Actor itself, so do not close over it and
    * publish it to other threads!
+   *
+   * [[akka.actor.ActorContext]] is the Scala API. `getContext` returns a
+   * [[akka.actor.UntypedActorContext]], which is the Java API of the actor
+   * context.
    */
   implicit final def context: ActorContext = _context
 
@@ -373,7 +432,9 @@ trait Actor {
    * This defines the initial actor behavior, it must return a partial function
    * with the actor logic.
    */
+  //#receive
   def receive: Actor.Receive
+  //#receive
 
   /**
    * INTERNAL API.
@@ -411,8 +472,6 @@ trait Actor {
    */
   def supervisorStrategy: SupervisorStrategy = SupervisorStrategy.defaultStrategy
 
-  // Life-cycle hooks
-
   /**
    * User overridable callback.
    * <p/>
@@ -420,7 +479,11 @@ trait Actor {
    * Actors are automatically started asynchronously when created.
    * Empty default implementation.
    */
+  @throws(classOf[Exception]) // when changing this you MUST also change UntypedActorDocTest
+  //#lifecycle-hooks
   def preStart(): Unit = ()
+
+  //#lifecycle-hooks
 
   /**
    * User overridable callback.
@@ -428,17 +491,22 @@ trait Actor {
    * Is called asynchronously after 'actor.stop()' is invoked.
    * Empty default implementation.
    */
+  @throws(classOf[Exception]) // when changing this you MUST also change UntypedActorDocTest
+  //#lifecycle-hooks
   def postStop(): Unit = ()
 
+  //#lifecycle-hooks
+
   /**
-   * User overridable callback: '''By default it disposes of all children and
-   * then calls `postStop()`.'''
+   * User overridable callback: '''By default it disposes of all children and then calls `postStop()`.'''
    * @param reason the Throwable that caused the restart to happen
    * @param message optionally the current message the actor processed when failing, if applicable
    * <p/>
    * Is called on a crashed Actor right BEFORE it is restarted to allow clean
    * up of resources before Actor is terminated.
    */
+  @throws(classOf[Exception]) // when changing this you MUST also change UntypedActorDocTest
+  //#lifecycle-hooks
   def preRestart(reason: Throwable, message: Option[Any]): Unit = {
     context.children foreach { child ⇒
       context.unwatch(child)
@@ -447,18 +515,20 @@ trait Actor {
     postStop()
   }
 
+  //#lifecycle-hooks
+
   /**
    * User overridable callback: By default it calls `preStart()`.
    * @param reason the Throwable that caused the restart to happen
    * <p/>
-   * Is called right AFTER restart on the newly created Actor to allow
-   * reinitialization after an Actor crash.
+   * Is called right AFTER restart on the newly created Actor to allow reinitialization after an Actor crash.
    */
+  @throws(classOf[Exception]) // when changing this you MUST also change UntypedActorDocTest
+  //#lifecycle-hooks
   def postRestart(reason: Throwable): Unit = {
     preStart()
   }
-
-  // Unhandled message
+  //#lifecycle-hooks
 
   /**
    * User overridable callback.
@@ -471,8 +541,7 @@ trait Actor {
   def unhandled(message: Any): Unit = {
     message match {
       case Terminated(dead) ⇒ throw new DeathPactException(dead)
-      case _ ⇒
-        context.system.eventStream.publish(UnhandledMessage(message, sender, self))
+      case _                ⇒ context.system.eventStream.publish(UnhandledMessage(message, sender, self))
     }
   }
 }
