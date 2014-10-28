@@ -125,33 +125,29 @@ case object ReceiveTimeout extends ReceiveTimeout {
 }
 
 /**
- * IllegalActorStateException is thrown when a core invariant in the Actor
- * implementation has been violated.
+ * IllegalActorStateException is thrown when a core invariant in the Actor implementation has been violated.
  * For instance, if you try to create an Actor that doesn't extend Actor.
  */
-final case class IllegalActorStateException private[akka] (
-  message: String) extends AkkaException(message)
+@SerialVersionUID(1L)
+case class IllegalActorStateException private[akka] (message: String) extends AkkaException(message)
 
 /**
- * ActorKilledException is thrown when an Actor receives the
- * [[org.scalajs.actors.Kill]] message
+ * ActorKilledException is thrown when an Actor receives the [[akka.actor.Kill]] message
  */
 @SerialVersionUID(1L)
-case class ActorKilledException private[akka] (message: String) extends AkkaException(message)
+case class ActorKilledException private[akka] (message: String) extends AkkaException(message) with NoStackTrace
 
 /**
- * An InvalidActorNameException is thrown when you try to convert something,
- * usually a String, to an Actor name which doesn't validate.
+ * An InvalidActorNameException is thrown when you try to convert something, usually a String, to an Actor name
+ * which doesn't validate.
  */
-final case class InvalidActorNameException(
-  message: String) extends AkkaException(message)
+@SerialVersionUID(1L)
+case class InvalidActorNameException(message: String) extends AkkaException(message)
 
 /**
- * An ActorInitializationException is thrown when the the initialization logic
- * for an Actor fails.
+ * An ActorInitializationException is thrown when the the initialization logic for an Actor fails.
  *
- * There is an extractor which works for ActorInitializationException and its
- * subtypes:
+ * There is an extractor which works for ActorInitializationException and its subtypes:
  *
  * {{{
  * ex match {
@@ -159,19 +155,16 @@ final case class InvalidActorNameException(
  * }
  * }}}
  */
-class ActorInitializationException protected (actor: ActorRef,
-                                              message: String, cause: Throwable)
+@SerialVersionUID(1L)
+class ActorInitializationException protected (actor: ActorRef, message: String, cause: Throwable)
   extends AkkaException(message, cause) {
-  def getActor(): ActorRef = actor
+  def getActor: ActorRef = actor
 }
-
 object ActorInitializationException {
   private[akka] def apply(actor: ActorRef, message: String, cause: Throwable = null): ActorInitializationException =
     new ActorInitializationException(actor, message, cause)
-  private[akka] def apply(message: String): ActorInitializationException =
-    new ActorInitializationException(null, message, null)
-  def unapply(ex: ActorInitializationException): Option[(ActorRef, String, Throwable)] =
-    Some((ex.getActor, ex.getMessage, ex.getCause))
+  private[akka] def apply(message: String): ActorInitializationException = new ActorInitializationException(null, message, null)
+  def unapply(ex: ActorInitializationException): Option[(ActorRef, String, Throwable)] = Some((ex.getActor, ex.getMessage, ex.getCause))
 }
 
 /**
@@ -185,8 +178,8 @@ object ActorInitializationException {
  * @param originalCause is the exception which caused the restart in the first place
  * @param messageOption is the message which was optionally passed into preRestart()
  */
-final case class PreRestartException private[akka] (actor: ActorRef,
-                                                    cause: Throwable, originalCause: Throwable, messageOption: Option[Any])
+@SerialVersionUID(1L)
+case class PreRestartException private[akka] (actor: ActorRef, cause: Throwable, originalCause: Throwable, messageOption: Option[Any])
   extends ActorInitializationException(actor,
     "exception in preRestart(" +
       (if (originalCause == null) "null" else originalCause.getClass) + ", " +
@@ -201,19 +194,18 @@ final case class PreRestartException private[akka] (actor: ActorRef,
  * @param cause is the exception thrown by that actor within preRestart()
  * @param originalCause is the exception which caused the restart in the first place
  */
-final case class PostRestartException private[akka] (actor: ActorRef,
-                                                     cause: Throwable, originalCause: Throwable)
+@SerialVersionUID(1L)
+case class PostRestartException private[akka] (actor: ActorRef, cause: Throwable, originalCause: Throwable)
   extends ActorInitializationException(actor,
-    "exception post restart (" + (
-      if (originalCause == null) "null"
-      else originalCause.getClass) + ")", cause)
+    "exception post restart (" + (if (originalCause == null) "null" else originalCause.getClass) + ")", cause)
 
 /**
  * This is an extractor for retrieving the original cause (i.e. the first
- * failure) from a [[org.scalajs.actors.PostRestartException]]. In the face of
- * multiple “nested” restarts it will walk the origCause-links until it arrives
- * at a non-PostRestartException type.
+ * failure) from a [[akka.actor.PostRestartException]]. In the face of multiple
+ * “nested” restarts it will walk the origCause-links until it arrives at a
+ * non-PostRestartException type.
  */
+@SerialVersionUID(1L)
 object OriginalRestartException {
   def unapply(ex: PostRestartException): Option[Throwable] = {
     @tailrec def rec(ex: PostRestartException): Option[Throwable] = ex match {
@@ -225,20 +217,20 @@ object OriginalRestartException {
 }
 
 /**
- * InvalidMessageException is thrown when an invalid message is sent to an
- * Actor.
+ * InvalidMessageException is thrown when an invalid message is sent to an Actor;
  * Currently only `null` is an invalid message.
  */
-final case class InvalidMessageException private[akka] (
-  message: String) extends AkkaException(message)
+@SerialVersionUID(1L)
+case class InvalidMessageException private[akka] (message: String) extends AkkaException(message)
 
 /**
- * A DeathPactException is thrown by an Actor that receives a
- * Terminated(someActor) message that it doesn't handle itself, effectively
- * crashing the Actor and escalating to the supervisor.
+ * A DeathPactException is thrown by an Actor that receives a Terminated(someActor) message
+ * that it doesn't handle itself, effectively crashing the Actor and escalating to the supervisor.
  */
-final case class DeathPactException private[akka] (dead: ActorRef)
+@SerialVersionUID(1L)
+case class DeathPactException private[akka] (dead: ActorRef)
   extends AkkaException("Monitored actor [" + dead + "] terminated")
+  with NoStackTrace
 
 /**
  * When an InterruptedException is thrown inside an Actor, it is wrapped as an ActorInterruptedException as to
@@ -248,16 +240,14 @@ final case class DeathPactException private[akka] (dead: ActorRef)
 class ActorInterruptedException private[akka] (cause: Throwable) extends AkkaException(cause.getMessage, cause)
 
 /**
- * This message is published to the EventStream whenever an Actor receives a
- * message it doesn't understand.
+ * This message is published to the EventStream whenever an Actor receives a message it doesn't understand
  */
-final case class UnhandledMessage(message: Any, sender: ActorRef,
-                                  recipient: ActorRef)
+@SerialVersionUID(1L)
+case class UnhandledMessage(@BeanProperty message: Any, @BeanProperty sender: ActorRef, @BeanProperty recipient: ActorRef)
 
 /**
  * Classes for passing status back to the sender.
- * Used for internal ACKing protocol. But exposed as utility class for
- * user-specific ACKing protocols as well.
+ * Used for internal ACKing protocol. But exposed as utility class for user-specific ACKing protocols as well.
  */
 object Status {
   sealed trait Status extends Serializable
