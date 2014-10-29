@@ -1,37 +1,153 @@
+/**
+ * Copyright (C) 2009-2014 Typesafe Inc. <http://www.typesafe.com>
+ */
+
 package akka.actor
 
 import akka.AkkaException
 import scala.annotation.unchecked.uncheckedStable
 import scala.annotation.tailrec
+import scala.beans.BeanProperty
+import scala.util.control.NoStackTrace
+// PORT import akka.event.LoggingAdapter
 
 /**
- * IllegalActorStateException is thrown when a core invariant in the Actor
- * implementation has been violated.
+ * INTERNAL API
+ *
+ * Marker trait to show which Messages are automatically handled by Akka
+ */
+private[akka] trait AutoReceivedMessage extends Serializable
+
+/**
+ * Marker trait to indicate that a message might be potentially harmful,
+ * this is used to block messages coming in over remoting.
+ */
+trait PossiblyHarmful
+
+/**
+ * Marker trait to signal that this class should not be verified for serializability.
+ */
+trait NoSerializationVerificationNeeded
+
+abstract class PoisonPill extends AutoReceivedMessage with PossiblyHarmful
+
+/**
+ * A message all Actors will understand, that when processed will terminate the Actor permanently.
+ */
+@SerialVersionUID(1L)
+case object PoisonPill extends PoisonPill {
+  /**
+   * Java API: get the singleton instance
+   */
+  def getInstance = this
+}
+
+abstract class Kill extends AutoReceivedMessage with PossiblyHarmful
+/**
+ * A message all Actors will understand, that when processed will make the Actor throw an ActorKilledException,
+ * which will trigger supervision.
+ */
+@SerialVersionUID(1L)
+case object Kill extends Kill {
+  /**
+   * Java API: get the singleton instance
+   */
+  def getInstance = this
+}
+
+/**
+ * A message all Actors will understand, that when processed will reply with
+ * [[akka.actor.ActorIdentity]] containing the `ActorRef`. The `messageId`
+ * is returned in the `ActorIdentity` message as `correlationId`.
+ */
+@SerialVersionUID(1L)
+case class Identify(messageId: Any) extends AutoReceivedMessage
+
+/**
+ * Reply to [[akka.actor.Identify]]. Contains
+ * `Some(ref)` with the `ActorRef` of the actor replying to the request or
+ * `None` if no actor matched the request.
+ * The `correlationId` is taken from the `messageId` in
+ * the `Identify` message.
+ */
+@SerialVersionUID(1L)
+case class ActorIdentity(correlationId: Any, ref: Option[ActorRef]) {
+  /**
+   * Java API: `ActorRef` of the actor replying to the request or
+   * null if no actor matched the request.
+   */
+  def getRef: ActorRef = ref.orNull
+}
+
+/**
+ * When Death Watch is used, the watcher will receive a Terminated(watched)
+ * message when watched is terminated.
+ * Terminated message can't be forwarded to another actor, since that actor
+ * might not be watching the subject. Instead, if you need to forward Terminated
+ * to another actor you should send the information in your own message.
+ *
+ * @param actor the watched actor that terminated
+ * @param existenceConfirmed is false when the Terminated message was not sent
+ *   directly from the watched actor, but derived from another source, such as
+ *   when watching a non-local ActorRef, which might not have been resolved
+ * @param addressTerminated the Terminated message was derived from
+ *   that the remote node hosting the watched actor was detected as unreachable
+ */
+@SerialVersionUID(1L)
+case class Terminated private[akka] (@BeanProperty actor: ActorRef)(
+  @BeanProperty val existenceConfirmed: Boolean,
+  @BeanProperty val addressTerminated: Boolean) extends AutoReceivedMessage with PossiblyHarmful
+
+/**
+ * INTERNAL API
+ *
+ * Used for remote death watch. Failure detector publish this to the
+ * [[akka.event.AddressTerminatedTopic]] when a remote node is detected to be unreachable and/or decided to
+ * be removed.
+ * The watcher ([[akka.actor.dungeon.DeathWatch]]) subscribes to the `AddressTerminatedTopic`
+ * and translates this event to [[akka.actor.Terminated]], which is sent itself.
+ */
+@SerialVersionUID(1L)
+private[akka] case class AddressTerminated(address: Address) extends AutoReceivedMessage with PossiblyHarmful
+
+abstract class ReceiveTimeout extends PossiblyHarmful
+
+/**
+ * When using ActorContext.setReceiveTimeout, the singleton instance of ReceiveTimeout will be sent
+ * to the Actor when there hasn't been any message for that long.
+ */
+@SerialVersionUID(1L)
+case object ReceiveTimeout extends ReceiveTimeout {
+  /**
+   * Java API: get the singleton instance
+   */
+  def getInstance = this
+}
+
+/**
+ * IllegalActorStateException is thrown when a core invariant in the Actor implementation has been violated.
  * For instance, if you try to create an Actor that doesn't extend Actor.
  */
-final case class IllegalActorStateException private[akka] (
-  message: String) extends AkkaException(message)
+@SerialVersionUID(1L)
+case class IllegalActorStateException private[akka] (message: String) extends AkkaException(message)
 
 /**
- * ActorKilledException is thrown when an Actor receives the
- * [[org.scalajs.actors.Kill]] message
+ * ActorKilledException is thrown when an Actor receives the [[akka.actor.Kill]] message
  */
-final case class ActorKilledException private[akka] (
-  message: String) extends AkkaException(message)
+@SerialVersionUID(1L)
+case class ActorKilledException private[akka] (message: String) extends AkkaException(message) with NoStackTrace
 
 /**
- * An InvalidActorNameException is thrown when you try to convert something,
- * usually a String, to an Actor name which doesn't validate.
+ * An InvalidActorNameException is thrown when you try to convert something, usually a String, to an Actor name
+ * which doesn't validate.
  */
-final case class InvalidActorNameException(
-  message: String) extends AkkaException(message)
+@SerialVersionUID(1L)
+case class InvalidActorNameException(message: String) extends AkkaException(message)
 
 /**
- * An ActorInitializationException is thrown when the the initialization logic
- * for an Actor fails.
+ * An ActorInitializationException is thrown when the the initialization logic for an Actor fails.
  *
- * There is an extractor which works for ActorInitializationException and its
- * subtypes:
+ * There is an extractor which works for ActorInitializationException and its subtypes:
  *
  * {{{
  * ex match {
@@ -39,19 +155,16 @@ final case class InvalidActorNameException(
  * }
  * }}}
  */
-class ActorInitializationException protected (actor: ActorRef,
-                                              message: String, cause: Throwable)
+@SerialVersionUID(1L)
+class ActorInitializationException protected (actor: ActorRef, message: String, cause: Throwable)
   extends AkkaException(message, cause) {
-  def getActor(): ActorRef = actor
+  def getActor: ActorRef = actor
 }
-
 object ActorInitializationException {
   private[akka] def apply(actor: ActorRef, message: String, cause: Throwable = null): ActorInitializationException =
     new ActorInitializationException(actor, message, cause)
-  private[akka] def apply(message: String): ActorInitializationException =
-    new ActorInitializationException(null, message, null)
-  def unapply(ex: ActorInitializationException): Option[(ActorRef, String, Throwable)] =
-    Some((ex.getActor, ex.getMessage, ex.getCause))
+  private[akka] def apply(message: String): ActorInitializationException = new ActorInitializationException(null, message, null)
+  def unapply(ex: ActorInitializationException): Option[(ActorRef, String, Throwable)] = Some((ex.getActor, ex.getMessage, ex.getCause))
 }
 
 /**
@@ -65,8 +178,8 @@ object ActorInitializationException {
  * @param originalCause is the exception which caused the restart in the first place
  * @param messageOption is the message which was optionally passed into preRestart()
  */
-final case class PreRestartException private[akka] (actor: ActorRef,
-                                                    cause: Throwable, originalCause: Throwable, messageOption: Option[Any])
+@SerialVersionUID(1L)
+case class PreRestartException private[akka] (actor: ActorRef, cause: Throwable, originalCause: Throwable, messageOption: Option[Any])
   extends ActorInitializationException(actor,
     "exception in preRestart(" +
       (if (originalCause == null) "null" else originalCause.getClass) + ", " +
@@ -81,19 +194,18 @@ final case class PreRestartException private[akka] (actor: ActorRef,
  * @param cause is the exception thrown by that actor within preRestart()
  * @param originalCause is the exception which caused the restart in the first place
  */
-final case class PostRestartException private[akka] (actor: ActorRef,
-                                                     cause: Throwable, originalCause: Throwable)
+@SerialVersionUID(1L)
+case class PostRestartException private[akka] (actor: ActorRef, cause: Throwable, originalCause: Throwable)
   extends ActorInitializationException(actor,
-    "exception post restart (" + (
-      if (originalCause == null) "null"
-      else originalCause.getClass) + ")", cause)
+    "exception post restart (" + (if (originalCause == null) "null" else originalCause.getClass) + ")", cause)
 
 /**
  * This is an extractor for retrieving the original cause (i.e. the first
- * failure) from a [[org.scalajs.actors.PostRestartException]]. In the face of
- * multiple “nested” restarts it will walk the origCause-links until it arrives
- * at a non-PostRestartException type.
+ * failure) from a [[akka.actor.PostRestartException]]. In the face of multiple
+ * “nested” restarts it will walk the origCause-links until it arrives at a
+ * non-PostRestartException type.
  */
+@SerialVersionUID(1L)
 object OriginalRestartException {
   def unapply(ex: PostRestartException): Option[Throwable] = {
     @tailrec def rec(ex: PostRestartException): Option[Throwable] = ex match {
@@ -105,20 +217,20 @@ object OriginalRestartException {
 }
 
 /**
- * InvalidMessageException is thrown when an invalid message is sent to an
- * Actor.
+ * InvalidMessageException is thrown when an invalid message is sent to an Actor;
  * Currently only `null` is an invalid message.
  */
-final case class InvalidMessageException private[akka] (
-  message: String) extends AkkaException(message)
+@SerialVersionUID(1L)
+case class InvalidMessageException private[akka] (message: String) extends AkkaException(message)
 
 /**
- * A DeathPactException is thrown by an Actor that receives a
- * Terminated(someActor) message that it doesn't handle itself, effectively
- * crashing the Actor and escalating to the supervisor.
+ * A DeathPactException is thrown by an Actor that receives a Terminated(someActor) message
+ * that it doesn't handle itself, effectively crashing the Actor and escalating to the supervisor.
  */
-final case class DeathPactException private[akka] (dead: ActorRef)
+@SerialVersionUID(1L)
+case class DeathPactException private[akka] (dead: ActorRef)
   extends AkkaException("Monitored actor [" + dead + "] terminated")
+  with NoStackTrace
 
 /**
  * When an InterruptedException is thrown inside an Actor, it is wrapped as an ActorInterruptedException as to
@@ -128,31 +240,29 @@ final case class DeathPactException private[akka] (dead: ActorRef)
 class ActorInterruptedException private[akka] (cause: Throwable) extends AkkaException(cause.getMessage, cause)
 
 /**
- * This message is published to the EventStream whenever an Actor receives a
- * message it doesn't understand.
+ * This message is published to the EventStream whenever an Actor receives a message it doesn't understand
  */
-final case class UnhandledMessage(message: Any, sender: ActorRef,
-                                  recipient: ActorRef)
+@SerialVersionUID(1L)
+case class UnhandledMessage(@BeanProperty message: Any, @BeanProperty sender: ActorRef, @BeanProperty recipient: ActorRef)
 
 /**
  * Classes for passing status back to the sender.
- * Used for internal ACKing protocol. But exposed as utility class for
- * user-specific ACKing protocols as well.
+ * Used for internal ACKing protocol. But exposed as utility class for user-specific ACKing protocols as well.
  */
 object Status {
   sealed trait Status extends Serializable
 
   /**
-   * This class/message type is preferably used to indicate success of some
-   * operation performed.
+   * This class/message type is preferably used to indicate success of some operation performed.
    */
-  case class Success(status: AnyRef) extends Status
+  @SerialVersionUID(1L)
+  case class Success(status: Any) extends Status
 
   /**
-   * This class/message type is preferably used to indicate failure of some
-   * operation performed.
+   * This class/message type is preferably used to indicate failure of some operation performed.
    * As an example, it is used to signal failure with AskSupport is used (ask/?).
    */
+  @SerialVersionUID(1L)
   case class Failure(cause: Throwable) extends Status
 }
 
@@ -186,7 +296,10 @@ object Actor {
   /**
    * Type alias representing a Receive-expression for Akka Actors.
    */
+  //#receive
   type Receive = PartialFunction[Any, Unit]
+
+  //#receive
 
   /**
    * emptyBehavior is a Receive-expression that matches no messages at all, ever.
@@ -204,6 +317,58 @@ object Actor {
   final val noSender: ActorRef = null
 }
 
+/**
+ * Actor base trait that should be extended by or mixed to create an Actor with the semantics of the 'Actor Model':
+ * <a href="http://en.wikipedia.org/wiki/Actor_model">http://en.wikipedia.org/wiki/Actor_model</a>
+ *
+ * An actor has a well-defined (non-cyclic) life-cycle.
+ *  - ''RUNNING'' (created and started actor) - can receive messages
+ *  - ''SHUTDOWN'' (when 'stop' is invoked) - can't do anything
+ *
+ * The Actor's own [[akka.actor.ActorRef]] is available as `self`, the current
+ * message’s sender as `sender()` and the [[akka.actor.ActorContext]] as
+ * `context`. The only abstract method is `receive` which shall return the
+ * initial behavior of the actor as a partial function (behavior can be changed
+ * using `context.become` and `context.unbecome`).
+ *
+ * This is the Scala API (hence the Scala code below), for the Java API see [[akka.actor.UntypedActor]].
+ *
+ * {{{
+ * class ExampleActor extends Actor {
+ *
+ *   override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 10, withinTimeRange = 1 minute) {
+ *     case _: ArithmeticException      => Resume
+ *     case _: NullPointerException     => Restart
+ *     case _: IllegalArgumentException => Stop
+ *     case _: Exception                => Escalate
+ *   }
+ *
+ *   def receive = {
+ *                                      // directly calculated reply
+ *     case Request(r)               => sender() ! calculate(r)
+ *
+ *                                      // just to demonstrate how to stop yourself
+ *     case Shutdown                 => context.stop(self)
+ *
+ *                                      // error kernel with child replying directly to 'sender()'
+ *     case Dangerous(r)             => context.actorOf(Props[ReplyToOriginWorker]).tell(PerformWork(r), sender())
+ *
+ *                                      // error kernel with reply going through us
+ *     case OtherJob(r)              => context.actorOf(Props[ReplyToMeWorker]) ! JobRequest(r, sender())
+ *     case JobReply(result, orig_s) => orig_s ! result
+ *   }
+ * }
+ * }}}
+ *
+ * The last line demonstrates the essence of the error kernel design: spawn
+ * one-off actors which terminate after doing their job, pass on `sender()` to
+ * allow direct reply if that is what makes sense, or round-trip the sender
+ * as shown with the fictitious JobRequest/JobReply message pair.
+ *
+ * If you don’t like writing `context` you can always `import context._` to get
+ * direct access to `actorOf`, `stop` etc. This is not default in order to keep
+ * the name-space clean.
+ */
 trait Actor {
 
   import Actor._
@@ -236,6 +401,10 @@ trait Actor {
    *
    * WARNING: Only valid within the Actor itself, so do not close over it and
    * publish it to other threads!
+   *
+   * [[akka.actor.ActorContext]] is the Scala API. `getContext` returns a
+   * [[akka.actor.UntypedActorContext]], which is the Java API of the actor
+   * context.
    */
   implicit final def context: ActorContext = _context
 
@@ -263,7 +432,9 @@ trait Actor {
    * This defines the initial actor behavior, it must return a partial function
    * with the actor logic.
    */
+  //#receive
   def receive: Actor.Receive
+  //#receive
 
   /**
    * INTERNAL API.
@@ -301,8 +472,6 @@ trait Actor {
    */
   def supervisorStrategy: SupervisorStrategy = SupervisorStrategy.defaultStrategy
 
-  // Life-cycle hooks
-
   /**
    * User overridable callback.
    * <p/>
@@ -310,7 +479,11 @@ trait Actor {
    * Actors are automatically started asynchronously when created.
    * Empty default implementation.
    */
+  @throws(classOf[Exception]) // when changing this you MUST also change UntypedActorDocTest
+  //#lifecycle-hooks
   def preStart(): Unit = ()
+
+  //#lifecycle-hooks
 
   /**
    * User overridable callback.
@@ -318,17 +491,22 @@ trait Actor {
    * Is called asynchronously after 'actor.stop()' is invoked.
    * Empty default implementation.
    */
+  @throws(classOf[Exception]) // when changing this you MUST also change UntypedActorDocTest
+  //#lifecycle-hooks
   def postStop(): Unit = ()
 
+  //#lifecycle-hooks
+
   /**
-   * User overridable callback: '''By default it disposes of all children and
-   * then calls `postStop()`.'''
+   * User overridable callback: '''By default it disposes of all children and then calls `postStop()`.'''
    * @param reason the Throwable that caused the restart to happen
    * @param message optionally the current message the actor processed when failing, if applicable
    * <p/>
    * Is called on a crashed Actor right BEFORE it is restarted to allow clean
    * up of resources before Actor is terminated.
    */
+  @throws(classOf[Exception]) // when changing this you MUST also change UntypedActorDocTest
+  //#lifecycle-hooks
   def preRestart(reason: Throwable, message: Option[Any]): Unit = {
     context.children foreach { child ⇒
       context.unwatch(child)
@@ -337,18 +515,20 @@ trait Actor {
     postStop()
   }
 
+  //#lifecycle-hooks
+
   /**
    * User overridable callback: By default it calls `preStart()`.
    * @param reason the Throwable that caused the restart to happen
    * <p/>
-   * Is called right AFTER restart on the newly created Actor to allow
-   * reinitialization after an Actor crash.
+   * Is called right AFTER restart on the newly created Actor to allow reinitialization after an Actor crash.
    */
+  @throws(classOf[Exception]) // when changing this you MUST also change UntypedActorDocTest
+  //#lifecycle-hooks
   def postRestart(reason: Throwable): Unit = {
     preStart()
   }
-
-  // Unhandled message
+  //#lifecycle-hooks
 
   /**
    * User overridable callback.
@@ -361,8 +541,7 @@ trait Actor {
   def unhandled(message: Any): Unit = {
     message match {
       case Terminated(dead) ⇒ throw new DeathPactException(dead)
-      case _ ⇒
-        context.system.eventStream.publish(UnhandledMessage(message, sender, self))
+      case _                ⇒ context.system.eventStream.publish(UnhandledMessage(message, sender, self))
     }
   }
 }

@@ -149,6 +149,11 @@ trait ActorRefProvider {
 }
 
 /**
+ * Internal Akka use only, used in implementation of system.stop(child).
+ */
+private[akka] case class StopChild(child: ActorRef)
+
+/**
  * INTERNAL API
  */
 private[akka] object SystemGuardian {
