@@ -8,7 +8,10 @@ import scala.util.control.NonFatal
 import akka.util.ReentrantGuard
 import scala.collection.immutable
 import akka.actor.ActorSystem.Settings
-import akka.AkkaException
+import akka.{ AkkaException, ConfigurationException }
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.TimeoutException
+import scala.concurrent.Await
 
 /**
  * This trait brings log level handling to the EventStream: it reads the log
@@ -73,6 +76,90 @@ trait LoggingBus extends ActorEventBus {
       _logLevel = level
     }
   }
+
+  /**
+   * Internal Akka use only
+   */
+  private[akka] def startStdoutLogger(config: Settings) {
+    setUpStdoutLogger(config)
+    publish(Debug(simpleName(this), this.getClass, "StandardOutLogger started"))
+  }
+
+  /**
+   * Internal Akka use only
+   */
+  private[akka] def startDefaultLoggers(system: ActorSystemImpl) {
+    val logName = simpleName(this) + "(" + system + ")"
+    val level = levelFor(system.settings.LogLevel) getOrElse {
+      // only log initialization errors directly with StandardOutLogger.print
+      StandardOutLogger.print(Error(new LoggerException, logName, this.getClass, "unknown akka.loglevel " + system.settings.LogLevel))
+      ErrorLevel
+    }
+    try {
+      val defaultLoggers = system.settings.Loggers match {
+        case Nil     ⇒ classOf[DefaultLogger].getName :: Nil
+        case loggers ⇒ loggers
+      }
+      val myloggers =
+        for {
+          loggerName ← defaultLoggers
+          if loggerName != StandardOutLogger.getClass.getName
+        } yield {
+          system.dynamicAccess.getClassFor[Actor](loggerName).map({
+            case actorClass ⇒ addLogger(system, actorClass, level, logName)
+          }).recover({
+            case e ⇒ throw new ConfigurationException(
+              "Logger specified in config can't be loaded [" + loggerName +
+                "] due to [" + e.toString + "]", e)
+          }).get
+        }
+      guard.withGuard {
+        loggers = myloggers
+        _logLevel = level
+      }
+      try {
+        if (system.settings.DebugUnhandledMessage)
+          subscribe(system.systemActorOf(Props(new Actor {
+            def receive = {
+              case UnhandledMessage(msg, sender, rcp) ⇒
+                publish(Debug(rcp.path.toString, rcp.getClass, "unhandled message from " + sender + ": " + msg))
+            }
+          }), "UnhandledMessageForwarder"), classOf[UnhandledMessage])
+      } catch {
+        case _: InvalidActorNameException ⇒ // ignore if it is already running
+      }
+      publish(Debug(logName, this.getClass, "Default Loggers started"))
+      if (!(defaultLoggers contains StandardOutLogger.getClass.getName)) {
+        unsubscribe(StandardOutLogger)
+      }
+    } catch {
+      case e: Exception ⇒
+        System.err.println("error while starting up loggers")
+        e.printStackTrace()
+        throw new ConfigurationException("Could not start logger due to [" + e.toString + "]")
+    }
+  }
+
+  /**
+   * INTERNAL API
+   */
+  private def addLogger(system: ActorSystemImpl, clazz: Class[_ <: Actor], level: LogLevel, logName: String): ActorRef = {
+    val name = "log" + Extension(system).id() + "-" + simpleName(clazz)
+    val actor = system.systemActorOf(Props(clazz), name)
+    implicit def timeout = system.settings.LoggerStartTimeout
+    import akka.pattern.Ask._
+    val response = try Await.result(actor ? InitializeLogger(this), timeout.duration) catch {
+      case _: TimeoutException ⇒
+        publish(Warning(logName, this.getClass, "Logger " + name + " did not respond within " + timeout + " to InitializeLogger(bus)"))
+        "[TIMEOUT]"
+    }
+    if (response != LoggerInitialized)
+      throw new LoggerInitializationException("Logger " + name + " did not respond with LoggerInitialized, sent instead " + response)
+    AllLogLevels filter (level >= _) foreach (l ⇒ subscribe(actor, classFor(l)))
+    publish(Debug(logName, this.getClass, "logger " + name + " started"))
+    actor
+  }
+
 }
 
 /**
@@ -280,6 +367,19 @@ object Logging {
   }
 
   /**
+   * INTERNAL API
+   */
+  private[akka] object Extension extends ExtensionKey[LogExt]
+
+  /**
+   * INTERNAL API
+   */
+  private[akka] class LogExt(system: ExtendedActorSystem) extends Extension {
+    private val loggerId = new AtomicInteger
+    def id() = loggerId.incrementAndGet()
+  }
+
+  /**
    * Marker trait for annotating LogLevel, which must be Int after erasure.
    */
   case class LogLevel(asInt: Int) extends AnyVal {
@@ -436,6 +536,35 @@ object Logging {
     override def level = DebugLevel
   }
 
+  /**
+   * Message which is sent to each default logger (i.e. from configuration file)
+   * after its creation but before attaching it to the logging bus. The logger
+   * actor must handle this message, it can be used e.g. to register for more
+   * channels. When done, the logger must respond with a LoggerInitialized
+   * message. This is necessary to ensure that additional subscriptions are in
+   * effect when the logging system finished starting.
+   */
+  case class InitializeLogger(bus: LoggingBus) extends NoSerializationVerificationNeeded
+
+  /**
+   * Response message each logger must send within 1 second after receiving the
+   * InitializeLogger request. If initialization takes longer, send the reply
+   * as soon as subscriptions are set-up.
+   */
+  abstract class LoggerInitialized
+  case object LoggerInitialized extends LoggerInitialized {
+    /**
+     * Java API: get the singleton instance
+     */
+    def getInstance = this
+  }
+
+  /**
+   * LoggerInitializationException is thrown to indicate that there was a problem initializing a logger
+   * @param msg
+   */
+  class LoggerInitializationException(msg: String) extends AkkaException(msg)
+
   trait StdOutLogger {
     import java.text.SimpleDateFormat
     import java.util.Date
@@ -524,6 +653,18 @@ object Logging {
   }
 
   val StandardOutLogger = new StandardOutLogger
+
+  /**
+   * Actor wrapper around the standard output logger. If
+   * <code>akka.loggers</code> is not set, it defaults to just this
+   * logger.
+   */
+  class DefaultLogger extends Actor with StdOutLogger {
+    override def receive: Receive = {
+      case InitializeLogger(_) ⇒ sender ! LoggerInitialized
+      case event: LogEvent     ⇒ print(event)
+    }
+  }
 
   type MDC = Map[String, Any]
 
