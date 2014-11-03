@@ -5,6 +5,75 @@ import akka.actor._
 import scala.annotation.implicitNotFound
 import scala.util.control.NoStackTrace
 import scala.util.control.NonFatal
+import akka.util.ReentrantGuard
+import scala.collection.immutable
+import akka.actor.ActorSystem.Settings
+import akka.AkkaException
+
+/**
+ * This trait brings log level handling to the EventStream: it reads the log
+ * levels for the initial logging (StandardOutLogger) and the loggers & level
+ * for after-init logging, possibly keeping the StandardOutLogger enabled if
+ * it is part of the configured loggers. All configured loggers are treated as
+ * system services and managed by this trait, i.e. subscribed/unsubscribed in
+ * response to changes of LoggingBus.logLevel.
+ */
+trait LoggingBus extends ActorEventBus {
+
+  type Event >: Logging.LogEvent
+  type Classifier >: Class[_]
+
+  import Logging._
+
+  private val guard = new ReentrantGuard
+  private var loggers = Seq.empty[ActorRef]
+  @volatile private var _logLevel: LogLevel = _
+
+  /**
+   * Query currently set log level. See object Logging for more information.
+   */
+  def logLevel = _logLevel
+
+  /**
+   * Change log level: default loggers (i.e. from configuration file) are
+   * subscribed/unsubscribed as necessary so that they listen to all levels
+   * which are at least as severe as the given one. See object Logging for
+   * more information.
+   *
+   * NOTE: if the StandardOutLogger is configured also as normal logger, it
+   * will not participate in the automatic management of log level
+   * subscriptions!
+   */
+  def setLogLevel(level: LogLevel): Unit = guard.withGuard {
+    val logLvl = _logLevel // saves (2 * AllLogLevel.size - 1) volatile reads (because of the loops below)
+    for {
+      l ← AllLogLevels
+      // subscribe if previously ignored and now requested
+      if l > logLvl && l <= level
+      log ← loggers
+    } subscribe(log, classFor(l))
+    for {
+      l ← AllLogLevels
+      // unsubscribe if previously registered and now ignored
+      if l <= logLvl && l > level
+      log ← loggers
+    } unsubscribe(log, classFor(l))
+    _logLevel = level
+  }
+
+  private def setUpStdoutLogger(config: Settings) {
+    val level = levelFor(config.StdoutLogLevel) getOrElse {
+      // only log initialization errors directly with StandardOutLogger.print
+      StandardOutLogger.print(Error(new LoggerException, simpleName(this), this.getClass, "unknown akka.stdout-loglevel " + config.StdoutLogLevel))
+      ErrorLevel
+    }
+    AllLogLevels filter (level >= _) foreach (l ⇒ subscribe(StandardOutLogger, classFor(l)))
+    guard.withGuard {
+      loggers :+= StandardOutLogger
+      _logLevel = level
+    }
+  }
+}
 
 /**
  * This trait defines the interface to be provided by a “log source formatting
@@ -232,6 +301,67 @@ object Logging {
   final val DebugLevel = LogLevel(4)
 
   /**
+   * Internal Akka use only
+   *
+   * Don't include the OffLevel in the AllLogLevels since we should never subscribe
+   * to some kind of OffEvent.
+   */
+  private final val OffLevel = LogLevel(Int.MinValue)
+
+  /**
+   * Returns the LogLevel associated with the given string,
+   * valid inputs are upper or lowercase (not mixed) versions of:
+   * "error", "warning", "info" and "debug"
+   */
+  def levelFor(s: String): Option[LogLevel] = s.toLowerCase match {
+    case "off"     ⇒ Some(OffLevel)
+    case "error"   ⇒ Some(ErrorLevel)
+    case "warning" ⇒ Some(WarningLevel)
+    case "info"    ⇒ Some(InfoLevel)
+    case "debug"   ⇒ Some(DebugLevel)
+    case unknown   ⇒ None
+  }
+
+  /**
+   * Returns the LogLevel associated with the given event class.
+   * Defaults to DebugLevel.
+   */
+  def levelFor(eventClass: Class[_ <: LogEvent]): LogLevel = {
+    if (classOf[Error].isAssignableFrom(eventClass)) ErrorLevel
+    else if (classOf[Warning].isAssignableFrom(eventClass)) WarningLevel
+    else if (classOf[Info].isAssignableFrom(eventClass)) InfoLevel
+    else if (classOf[Debug].isAssignableFrom(eventClass)) DebugLevel
+    else DebugLevel
+  }
+
+  /**
+   * Returns the event class associated with the given LogLevel
+   */
+  def classFor(level: LogLevel): Class[_ <: LogEvent] = level match {
+    case ErrorLevel   ⇒ classOf[Error]
+    case WarningLevel ⇒ classOf[Warning]
+    case InfoLevel    ⇒ classOf[Info]
+    case DebugLevel   ⇒ classOf[Debug]
+  }
+
+  // these type ascriptions/casts are necessary to avoid CCEs during construction while retaining correct type
+  val AllLogLevels: immutable.Seq[LogLevel] = Vector(ErrorLevel, WarningLevel, InfoLevel, DebugLevel)
+
+  /**
+   * Artificial exception injected into Error events if no Throwable is
+   * supplied; used for getting a stack dump of error locations.
+   */
+  class LoggerException extends AkkaException("")
+
+  /**
+   * Exception that wraps a LogEvent.
+   */
+  class LogEventException(val event: LogEvent, cause: Throwable) extends NoStackTrace {
+    override def getMessage: String = event.toString
+    override def getCause: Throwable = cause
+  }
+
+  /**
    * Base type of LogEvents
    */
   sealed trait LogEvent {
@@ -376,6 +506,24 @@ object Logging {
       other.printStackTrace(pw)
       sw.toString
   }
+
+  /**
+   * Actor-less logging implementation for synchronous logging to standard
+   * output. This logger is always attached first in order to be able to log
+   * failures during application start-up, even before normal logging is
+   * started. Its log level can be defined by configuration setting
+   * <code>akka.stdout-loglevel</code>.
+   */
+  class StandardOutLogger extends MinimalActorRef with StdOutLogger {
+    val path: ActorPath = new RootActorPath(Address("akka", "all-systems"), "/StandardOutLogger")
+    def provider: ActorRefProvider = throw new UnsupportedOperationException("StandardOutLogger does not provide")
+    override val toString = "StandardOutLogger"
+    override def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit =
+      if (message == null) throw new InvalidMessageException("Message is null")
+      else print(message)
+  }
+
+  val StandardOutLogger = new StandardOutLogger
 
   type MDC = Map[String, Any]
 

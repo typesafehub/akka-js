@@ -48,6 +48,9 @@ object ActorSystem {
     final val DebugEventStream: Boolean = false
     final val DebugUnhandledMessage: Boolean = false
 
+    final val StdoutLogLevel: String = // getString("akka.stdout-loglevel")
+      "WARNING"
+
     override def toString: String = s"Settings($name)"
 
   }
