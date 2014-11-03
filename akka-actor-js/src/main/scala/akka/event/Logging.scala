@@ -4,6 +4,7 @@ import language.existentials
 import akka.actor._
 import scala.annotation.implicitNotFound
 import scala.util.control.NoStackTrace
+import scala.util.control.NonFatal
 
 /**
  * This trait defines the interface to be provided by a “log source formatting
@@ -59,6 +60,102 @@ import scala.util.control.NoStackTrace
  * directly.
  */
 class DummyClassForStringSources
+
+/**
+ * This object holds predefined formatting rules for log sources.
+ *
+ * In case an [[akka.actor.ActorSystem]] is provided, the following apply:
+ * <ul>
+ * <li>[[akka.actor.Actor]] and [[akka.actor.ActorRef]] will be represented by their absolute physical path</li>
+ * <li>providing a `String` as source will append "(<system address>)" and use the result</li>
+ * <li>providing a `Class` will extract its simple name, append "(<system address>)" and use the result</li>
+ * <li>anything else gives compile error unless implicit [[akka.event.LogSource]] is in scope for it</li>
+ * </ul>
+ *
+ * In case a [[akka.event.LoggingBus]] is provided, the following apply:
+ * <ul>
+ * <li>[[akka.actor.Actor]] and [[akka.actor.ActorRef]] will be represented by their absolute physical path</li>
+ * <li>providing a `String` as source will be used as is</li>
+ * <li>providing a `Class` will extract its simple name</li>
+ * <li>anything else gives compile error unless implicit [[akka.event.LogSource]] is in scope for it</li>
+ * </ul>
+ */
+object LogSource {
+  implicit val fromString: LogSource[String] = new LogSource[String] {
+    def genString(s: String) = s
+    override def genString(s: String, system: ActorSystem) = s + "(" + system + ")"
+    override def getClazz(s: String) = classOf[DummyClassForStringSources]
+  }
+
+  implicit val fromActor: LogSource[Actor] = new LogSource[Actor] {
+    def genString(a: Actor) = fromActorRef.genString(a.self)
+    override def genString(a: Actor, system: ActorSystem) = fromActorRef.genString(a.self, system)
+  }
+
+  implicit val fromActorRef: LogSource[ActorRef] = new LogSource[ActorRef] {
+    def genString(a: ActorRef) = a.path.toString
+    override def genString(a: ActorRef, system: ActorSystem) = try {
+      a.path.toStringWithAddress(system.asInstanceOf[ExtendedActorSystem].provider.getDefaultAddress)
+    } catch {
+      // it can fail if the ActorSystem (remoting) is not completely started yet
+      case NonFatal(_) ⇒ a.path.toString
+    }
+  }
+
+  // this one unfortunately does not work as implicit, because existential types have some weird behavior
+  val fromClass: LogSource[Class[_]] = new LogSource[Class[_]] {
+    def genString(c: Class[_]): String = Logging.simpleName(c)
+    override def genString(c: Class[_], system: ActorSystem): String = genString(c) + "(" + system + ")"
+    override def getClazz(c: Class[_]): Class[_] = c
+  }
+  implicit def fromAnyClass[T]: LogSource[Class[T]] = fromClass.asInstanceOf[LogSource[Class[T]]]
+
+  /**
+   * Convenience converter access: given an implicit `LogSource`, generate the
+   * string representation and originating class.
+   */
+  def apply[T: LogSource](o: T): (String, Class[_]) = {
+    val ls = implicitly[LogSource[T]]
+    (ls.genString(o), ls.getClazz(o))
+  }
+
+  /**
+   * Convenience converter access: given an implicit `LogSource` and
+   * [[akka.actor.ActorSystem]], generate the string representation and
+   * originating class.
+   */
+  def apply[T: LogSource](o: T, system: ActorSystem): (String, Class[_]) = {
+    val ls = implicitly[LogSource[T]]
+    (ls.genString(o, system), ls.getClazz(o))
+  }
+
+  /**
+   * construct string representation for any object according to
+   * rules above with fallback to its `Class`’s simple name.
+   */
+  def fromAnyRef(o: AnyRef): (String, Class[_]) =
+    o match {
+      case c: Class[_] ⇒ apply(c)
+      case a: Actor    ⇒ apply(a)
+      case a: ActorRef ⇒ apply(a)
+      case s: String   ⇒ apply(s)
+      case x           ⇒ (Logging.simpleName(x), x.getClass)
+    }
+
+  /**
+   * construct string representation for any object according to
+   * rules above (including the actor system’s address) with fallback to its
+   * `Class`’s simple name.
+   */
+  def fromAnyRef(o: AnyRef, system: ActorSystem): (String, Class[_]) =
+    o match {
+      case c: Class[_] ⇒ apply(c)
+      case a: Actor    ⇒ apply(a)
+      case a: ActorRef ⇒ apply(a)
+      case s: String   ⇒ apply(s)
+      case x           ⇒ (Logging.simpleName(x) + "(" + system + ")", x.getClass)
+    }
+}
 
 /**
  * Main entry point for Akka logging: log levels and message types (aka
