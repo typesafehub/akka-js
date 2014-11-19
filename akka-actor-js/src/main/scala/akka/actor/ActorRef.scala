@@ -48,6 +48,13 @@ abstract class ActorRef { internalRef: InternalActorRef ⇒
   def forward(message: Any)(implicit context: ActorContext): Unit = tell(message, context.sender)
 
   /**
+   * Is the actor shut down?
+   * The contract is that if this method returns true, then it will never be false again.
+   * But you cannot rely on that it is alive if it returns false, since this by nature is a racy method.
+   */
+  @deprecated("Use context.watch(actor) and receive Terminated(actor)", "2.2") def isTerminated: Boolean
+
+  /**
    * Comparison takes path and the unique id of the actor cell into account.
    */
   final def compareTo(other: ActorRef) = {
@@ -170,11 +177,12 @@ private[akka] trait MinimalActorRef extends InternalActorRef {
   override def suspend(): Unit = ()
   override def resume(causedByFailure: Throwable): Unit = ()
   override def stop(): Unit = ()
-  override def restart(cause: Throwable): Unit = ()
+  @deprecated("Use context.watch(actor) and receive Terminated(actor)", "2.2") override def isTerminated = false
 
   override def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit = ()
 
   override def sendSystemMessage(message: SystemMessage): Unit = ()
+  override def restart(cause: Throwable): Unit = ()
 
   override def getParent: InternalActorRef = Nobody
   override def getChild(names: Iterator[String]): InternalActorRef =
@@ -203,6 +211,8 @@ private[akka] class EmptyLocalActorRef(
   override val provider: ActorRefProvider,
   override val path: ActorPath,
   val eventStream: EventStream) extends MinimalActorRef {
+
+  @deprecated("Use context.watch(actor) and receive Terminated(actor)", "2.2") override def isTerminated = true
 
   override def sendSystemMessage(message: SystemMessage): Unit = {
     //if (Mailbox.debug) println(s"ELAR $path having enqueued $message")
@@ -296,6 +306,13 @@ private[akka] class LocalActorRef(
   actorCell.init(sendSupervise = _parent ne null)
 
   private[akka] def underlying = actorCell
+
+  /**
+   * Is the actor terminated?
+   * If this method returns true, it will never return false again, but if it
+   * returns false, you cannot be sure if it's alive still (race condition)
+   */
+  @deprecated("Use context.watch(actor) and receive Terminated(actor)", "2.2") override def isTerminated: Boolean = actorCell.isTerminated
 
   def !(msg: Any)(implicit sender: ActorRef = Actor.noSender): Unit = actorCell.sendMessage(Envelope(msg, sender, system))
 

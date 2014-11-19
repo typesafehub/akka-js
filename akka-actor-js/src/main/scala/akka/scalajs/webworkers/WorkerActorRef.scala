@@ -29,6 +29,8 @@ private[akka] class WorkerActorRef(
   def suspend(): Unit = ()
   def restart(cause: Throwable): Unit = ()
   def stop(): Unit = ()
+  @deprecated("Use context.watch(actor) and receive Terminated(actor)", "2.2") override def isTerminated = false
+
   def sendSystemMessage(message: SystemMessage): Unit = ()
 
   def getParent: InternalActorRef = parent

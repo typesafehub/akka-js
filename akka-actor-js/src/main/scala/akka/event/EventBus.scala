@@ -57,7 +57,6 @@ trait ActorEventBus extends EventBus {
   protected def compareSubscribers(a: ActorRef, b: ActorRef) = a compareTo b
 }
 
-/*
 /**
  * Can be mixed into an EventBus to specify that the Classifier type is ActorRef
  */
@@ -185,7 +184,6 @@ trait SubchannelClassification { this: EventBus ⇒
       case (m, (c, cs)) ⇒ m.updated(c, m.getOrElse(c, Set.empty[Subscriber]) ++ cs)
     }
 }
-*/
 
 /**
  * Maps Classifiers to Subscribers and selects which Subscriber should receive which publication through scanning through all Subscribers

@@ -448,6 +448,55 @@ object Logging {
   val AllLogLevels: immutable.Seq[LogLevel] = Vector(ErrorLevel, WarningLevel, InfoLevel, DebugLevel)
 
   /**
+   * Obtain LoggingAdapter for the given actor system and source object. This
+   * will use the system’s event stream and include the system’s address in the
+   * log source string.
+   *
+   * <b>Do not use this if you want to supply a log category string (like
+   * “com.example.app.whatever”) unaltered,</b> supply `system.eventStream` in this
+   * case or use
+   *
+   * {{{
+   * Logging(system, this.getClass)
+   * }}}
+   *
+   * The source is used to identify the source of this logging channel and
+   * must have a corresponding implicit LogSource[T] instance in scope; by
+   * default these are provided for Class[_], Actor, ActorRef and String types.
+   * See the companion object of [[akka.event.LogSource]] for details.
+   *
+   * You can add your own rules quite easily, see [[akka.event.LogSource]].
+   */
+  def apply[T: LogSource](system: ActorSystem, logSource: T): LoggingAdapter = {
+    val (str, clazz) = LogSource(logSource, system)
+    new BusLogging(system.eventStream, str, clazz)
+  }
+
+  /**
+   * Obtain LoggingAdapter for the given logging bus and source object.
+   *
+   * The source is used to identify the source of this logging channel and
+   * must have a corresponding implicit LogSource[T] instance in scope; by
+   * default these are provided for Class[_], Actor, ActorRef and String types.
+   * See the companion object of [[akka.event.LogSource]] for details.
+   *
+   * You can add your own rules quite easily, see [[akka.event.LogSource]].
+   */
+  def apply[T: LogSource](bus: LoggingBus, logSource: T): LoggingAdapter = {
+    val (str, clazz) = LogSource(logSource)
+    new BusLogging(bus, str, clazz)
+  }
+
+  /**
+   * Obtain LoggingAdapter with MDC support for the given actor.
+   * Don't use it outside its specific Actor as it isn't thread safe
+   */
+  def apply(logSource: Actor): DiagnosticLoggingAdapter = {
+    val (str, clazz) = LogSource(logSource)
+    new BusLogging(logSource.context.system.eventStream, str, clazz) with DiagnosticLoggingAdapter
+  }
+
+  /**
    * Artificial exception injected into Error events if no Throwable is
    * supplied; used for getting a stack dump of error locations.
    */
@@ -495,6 +544,11 @@ object Logging {
      * The message, may be any object or null.
      */
     def message: Any
+
+    /**
+     * Extra values for adding to MDC
+     */
+    def mdc: MDC = emptyMDC
   }
 
   /**
@@ -505,10 +559,14 @@ object Logging {
 
     override def level = ErrorLevel
   }
+  class Error2(cause: Throwable, logSource: String, logClass: Class[_], message: Any = "", override val mdc: MDC) extends Error(cause, logSource, logClass, message) {
+    def this(logSource: String, logClass: Class[_], message: Any, mdc: MDC) = this(Error.NoCause, logSource, logClass, message, mdc)
+  }
 
   object Error {
-    def apply(logSource: String, logClass: Class[_], message: Any) =
-      new Error(NoCause, logSource, logClass, message)
+    def apply(logSource: String, logClass: Class[_], message: Any) = new Error(NoCause, logSource, logClass, message)
+    def apply(cause: Throwable, logSource: String, logClass: Class[_], message: Any, mdc: MDC) = new Error2(cause, logSource, logClass, message, mdc)
+    def apply(logSource: String, logClass: Class[_], message: Any, mdc: MDC) = new Error2(NoCause, logSource, logClass, message, mdc)
 
     /** Null Object used for errors without cause Throwable */
     object NoCause extends Throwable
@@ -521,6 +579,10 @@ object Logging {
   case class Warning(logSource: String, logClass: Class[_], message: Any = "") extends LogEvent {
     override def level = WarningLevel
   }
+  class Warning2(logSource: String, logClass: Class[_], message: Any, override val mdc: MDC) extends Warning(logSource, logClass, message)
+  object Warning {
+    def apply(logSource: String, logClass: Class[_], message: Any, mdc: MDC) = new Warning2(logSource, logClass, message, mdc)
+  }
 
   /**
    * For INFO Logging
@@ -528,12 +590,20 @@ object Logging {
   case class Info(logSource: String, logClass: Class[_], message: Any = "") extends LogEvent {
     override def level = InfoLevel
   }
+  class Info2(logSource: String, logClass: Class[_], message: Any, override val mdc: MDC) extends Info(logSource, logClass, message)
+  object Info {
+    def apply(logSource: String, logClass: Class[_], message: Any, mdc: MDC) = new Info2(logSource, logClass, message, mdc)
+  }
 
   /**
    * For DEBUG Logging
    */
   case class Debug(logSource: String, logClass: Class[_], message: Any = "") extends LogEvent {
     override def level = DebugLevel
+  }
+  class Debug2(logSource: String, logClass: Class[_], message: Any, override val mdc: MDC) extends Debug(logSource, logClass, message)
+  object Debug {
+    def apply(logSource: String, logClass: Class[_], message: Any, mdc: MDC) = new Debug2(logSource, logClass, message, mdc)
   }
 
   /**
@@ -974,6 +1044,25 @@ trait DiagnosticLoggingAdapter extends LoggingAdapter {
    * Clear all entries in the MDC
    */
   def clearMDC(): Unit = mdc(emptyMDC)
+}
+
+/**
+ * [[akka.event.LoggingAdapter]] that publishes [[akka.event.Logging.LogEvent]] to event stream.
+ */
+class BusLogging(val bus: LoggingBus, val logSource: String, val logClass: Class[_]) extends LoggingAdapter {
+
+  import Logging._
+
+  def isErrorEnabled = bus.logLevel >= ErrorLevel
+  def isWarningEnabled = bus.logLevel >= WarningLevel
+  def isInfoEnabled = bus.logLevel >= InfoLevel
+  def isDebugEnabled = bus.logLevel >= DebugLevel
+
+  protected def notifyError(message: String): Unit = bus.publish(Error(logSource, logClass, message, mdc))
+  protected def notifyError(cause: Throwable, message: String): Unit = bus.publish(Error(cause, logSource, logClass, message, mdc))
+  protected def notifyWarning(message: String): Unit = bus.publish(Warning(logSource, logClass, message, mdc))
+  protected def notifyInfo(message: String): Unit = bus.publish(Info(logSource, logClass, message, mdc))
+  protected def notifyDebug(message: String): Unit = bus.publish(Debug(logSource, logClass, message, mdc))
 }
 
 /**
