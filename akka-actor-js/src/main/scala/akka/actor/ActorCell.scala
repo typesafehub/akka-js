@@ -10,7 +10,9 @@ import akka.event.Logging._
 import akka.dispatch.sysmsg._
 
 private[akka] object ActorCell {
-  var contextStack: List[ActorContext] = Nil
+  val contextStack = new ThreadLocal[List[ActorContext]] {
+    override def initialValue: List[ActorContext] = Nil
+  }
 
   final val emptyBehaviorStack: List[Actor.Receive] = Nil
 
@@ -228,7 +230,7 @@ private[akka] class ActorCell(
 
   //This method is in charge of setting up the contextStack and create a new instance of the Actor
   protected def newActor(): Actor = {
-    contextStack = this :: contextStack
+    contextStack.set(this :: contextStack.get)
     try {
       behaviorStack = emptyBehaviorStack
       val instance = props.newActor()
@@ -243,11 +245,9 @@ private[akka] class ActorCell(
         else behaviorStack
       instance
     } finally {
-      val stackAfter = contextStack
+      val stackAfter = contextStack.get
       if (stackAfter.nonEmpty)
-        contextStack = (
-          if (stackAfter.head eq null) stackAfter.tail.tail
-          else stackAfter.tail) // pop null marker plus our context
+        contextStack.set(if (stackAfter.head eq null) stackAfter.tail.tail else stackAfter.tail) // pop null marker plus our context
     }
   }
 
@@ -300,9 +300,14 @@ private[akka] class ActorCell(
   }
 
   final protected def clearActorFields(actorInstance: Actor): Unit = {
-    actorInstance.setActorFields(context = null, self = system.deadLetters)
+    setActorFields(actorInstance, context = null, self = system.deadLetters)
     currentMessage = null
     behaviorStack = emptyBehaviorStack
+  }
+
+  final protected def setActorFields(actorInstance: Actor, context: ActorContext, self: ActorRef): Unit = {
+    actorInstance._context = context
+    actorInstance._self = self
   }
 
   // logging is not the main purpose, and if it fails there’s nothing we can do

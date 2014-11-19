@@ -5,7 +5,6 @@
 package akka.actor
 
 import akka.AkkaException
-import scala.annotation.unchecked.uncheckedStable
 import scala.annotation.tailrec
 import scala.beans.BeanProperty
 import scala.util.control.NoStackTrace
@@ -287,6 +286,38 @@ trait ActorLogging { this: Actor ⇒
       _log = akka.event.Logging(context.system, this)
     _log
   }
+
+}
+
+/**
+ * Scala API: Mix in DiagnosticActorLogging into your Actor to easily obtain a reference to a logger with MDC support,
+ * which is available under the name "log".
+ * In the example bellow "the one who knocks" will be available under the key "iam" for using it in the logback pattern.
+ *
+ * {{{
+ * class MyActor extends Actor with DiagnosticActorLogging {
+ *
+ *   override def mdc(currentMessage: Any): MDC = {
+ *     Map("iam", "the one who knocks")
+ *   }
+ *
+ *   def receive = {
+ *     case "pigdog" => log.info("We've got yet another pigdog on our hands")
+ *   }
+ * }
+ * }}}
+ */
+trait DiagnosticActorLogging extends Actor {
+  import akka.event.Logging._
+  val log = akka.event.Logging(this)
+  def mdc(currentMessage: Any): MDC = emptyMDC
+
+  override protected[akka] def aroundReceive(receive: Actor.Receive, msg: Any): Unit = try {
+    log.mdc(mdc(msg))
+    super.aroundReceive(receive, msg)
+  } finally {
+    log.clearMDC()
+  }
 }
 
 object Actor {
@@ -373,25 +404,6 @@ trait Actor {
   // to make type Receive known in subclasses without import
   type Receive = Actor.Receive
 
-  private[this] var _context: ActorContext = {
-    val contextStack = ActorCell.contextStack
-    if ((contextStack.isEmpty) || (contextStack.head eq null))
-      throw ActorInitializationException(
-        s"You cannot create an instance of [${getClass.getName}] explicitly using the constructor (new). " +
-          "You have to use one of the 'actorOf' factory methods to create a new actor. See the documentation.")
-    val c = contextStack.head
-    ActorCell.contextStack = null :: contextStack
-    c
-  }
-
-  private[this] var _self: ActorRef = context.self
-
-  private[akka] final def setActorFields(context: ActorContext,
-                                         self: ActorRef): Unit = {
-    this._context = context
-    this._self = self
-  }
-
   /**
    * Stores the context for this actor, including self, and sender.
    * It is implicit to support operations such as `forward`.
@@ -403,6 +415,16 @@ trait Actor {
    * [[akka.actor.UntypedActorContext]], which is the Java API of the actor
    * context.
    */
+  private[actor] var _context: ActorContext = {
+    val contextStack = ActorCell.contextStack.get
+    if ((contextStack.isEmpty) || (contextStack.head eq null))
+      throw ActorInitializationException(
+        s"You cannot create an instance of [${getClass.getName}] explicitly using the constructor (new). " +
+          "You have to use one of the 'actorOf' factory methods to create a new actor. See the documentation.")
+    val c = contextStack.head
+    ActorCell.contextStack.set(null :: contextStack)
+    c
+  }
   implicit final def context: ActorContext = _context
 
   /**
@@ -413,6 +435,7 @@ trait Actor {
    * self ! message
    * </pre>
    */
+  private[actor] var _self: ActorRef = context.self
   implicit final def self: ActorRef = _self
 
   /**
@@ -423,7 +446,7 @@ trait Actor {
    * WARNING: Only valid within the Actor itself, so do not close over it and
    * publish it to other threads!
    */
-  final def sender: ActorRef = context.sender
+  final def sender(): ActorRef = context.sender()
 
   /**
    * This defines the initial actor behavior, it must return a partial function
@@ -538,7 +561,7 @@ trait Actor {
   def unhandled(message: Any): Unit = {
     message match {
       case Terminated(dead) ⇒ throw new DeathPactException(dead)
-      case _                ⇒ context.system.eventStream.publish(UnhandledMessage(message, sender, self))
+      case _                ⇒ context.system.eventStream.publish(UnhandledMessage(message, sender(), self))
     }
   }
 }
