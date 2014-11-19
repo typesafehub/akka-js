@@ -3,9 +3,11 @@ package akka.actor
 import akka.akkajs.EventLoopScheduler
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
 
 import akka.dispatch._
 import akka.event._
+import akka.util.Timeout
 import scala.collection.mutable.HashMap
 
 object ActorSystem {
@@ -47,6 +49,11 @@ object ActorSystem {
     final val DebugLifecycle: Boolean = true
     final val DebugEventStream: Boolean = false
     final val DebugUnhandledMessage: Boolean = false
+
+    final val StdoutLogLevel: String = "WARNING" // getString("akka.stdout-loglevel")
+    final val LogLevel: String = "INFO"
+    final val Loggers: List[String] = List("akka.event.Logging$DefaultLogger")
+    final val LoggerStartTimeout: Timeout = 10.seconds //TODO
 
     override def toString: String = s"Settings($name)"
 

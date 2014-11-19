@@ -9,7 +9,7 @@ import scala.annotation.unchecked.uncheckedStable
 import scala.annotation.tailrec
 import scala.beans.BeanProperty
 import scala.util.control.NoStackTrace
-// PORT import akka.event.LoggingAdapter
+import akka.event.LoggingAdapter
 
 /**
  * INTERNAL API
@@ -279,16 +279,13 @@ object Status {
  * }}}
  */
 trait ActorLogging { this: Actor ⇒
-  //val log = akka.event.Logging(context.system, this)
-  object log {
-    import akka.event.Logging._
-    private def publish(event: LogEvent) = context.system.eventStream.publish(event)
-    private def myClass = ActorLogging.this.getClass
+  private var _log: LoggingAdapter = _
 
-    def debug(msg: String): Unit = publish(Debug(self.toString, myClass, msg))
-    def info(msg: String): Unit = publish(Info(self.toString, myClass, msg))
-    def warning(msg: String): Unit = publish(Warning(self.toString, myClass, msg))
-    def error(msg: String): Unit = publish(Error(self.toString, myClass, msg))
+  def log: LoggingAdapter = {
+    // only used in Actor, i.e. thread safe
+    if (_log eq null)
+      _log = akka.event.Logging(context.system, this)
+    _log
   }
 }
 

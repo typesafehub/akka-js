@@ -29,6 +29,12 @@ abstract class DynamicAccess {
   def createInstanceFor[T: ClassTag](clazz: Class[_], args: immutable.Seq[(Class[_], AnyRef)]): Try[T]
 
   /**
+   * Obtain a `Class[_]` object loaded with the right class loader (i.e. the one
+   * returned by `classLoader`).
+   */
+  def getClassFor[T: ClassTag](fqcn: String): Try[Class[_ <: T]]
+
+  /**
    * Obtain an object conforming to the type T, which is expected to be
    * instantiated from a class designated by the fully-qualified class name
    * given, where the constructor is selected and invoked according to the
@@ -44,6 +50,13 @@ abstract class DynamicAccess {
 }
 
 class JSDynamicAccess extends DynamicAccess {
+
+  def getClassFor[T: ClassTag](fqcn: String): Try[Class[_ <: T]] =
+    Try[Class[_ <: T]]({
+      val c = Class.forName(fqcn /*, false, classLoader*/ ).asInstanceOf[Class[_ <: T]]
+      val t = implicitly[ClassTag[T]].runtimeClass
+      if (t.isAssignableFrom(c)) c else throw new ClassCastException(t + " is not assignable from " + c)
+    })
 
   def createInstanceFor[T: ClassTag](clazz: Class[_], args: immutable.Seq[(Class[_], AnyRef)]): Try[T] =
     createInstanceFor[T](clazz.getSimpleName(), args)
