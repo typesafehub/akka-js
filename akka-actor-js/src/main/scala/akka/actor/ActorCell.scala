@@ -300,9 +300,14 @@ private[akka] class ActorCell(
   }
 
   final protected def clearActorFields(actorInstance: Actor): Unit = {
-    actorInstance.setActorFields(context = null, self = system.deadLetters)
+    setActorFields(actorInstance, context = null, self = system.deadLetters)
     currentMessage = null
     behaviorStack = emptyBehaviorStack
+  }
+
+  final protected def setActorFields(actorInstance: Actor, context: ActorContext, self: ActorRef): Unit = {
+    actorInstance._context = context
+    actorInstance._self = self
   }
 
   // logging is not the main purpose, and if it fails there’s nothing we can do

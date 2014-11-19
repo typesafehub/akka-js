@@ -56,7 +56,7 @@ trait ActorContext extends ActorRefFactory {
   /**
    * Returns the sender 'ActorRef' of the current message.
    */
-  def sender: ActorRef
+  def sender(): ActorRef
 
   /**
    * Returns all supervised children; this method returns a view (i.e. a lazy
