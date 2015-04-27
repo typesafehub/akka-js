@@ -1,3 +1,6 @@
+# This is (unsupported) Work in Progress
+We're not actively working on this right now, but happy to share the code and work with anyone interested to work on this.
+
 # Akka.js
 
 This project provides an implementation of Akka's core `akka-actor` module for
