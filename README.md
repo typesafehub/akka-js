@@ -1,5 +1,8 @@
-# This is (unsupported) Work in Progress
-We're not actively working on this right now, but happy to share the code and work with anyone interested to work on this.
+# This project is not maintained, a different one is though!
+This project is not actively being worked on at present. 
+Instead **an actively maintained port of Akka to Scala.js is available here: https://github.com/unicredit/akka.js**.
+
+We highly recommend you have a look at it instead - it features a full Akka core as well as Streams port working in the browser.
 
 # Akka.js
 
